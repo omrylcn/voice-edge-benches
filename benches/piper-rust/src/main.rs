@@ -150,20 +150,46 @@ fn main() {
         let mut last_sr: u32 = 22050;
 
         let sr = piper.clone_model().audio_output_info().unwrap().sample_rate as u32;
+        // PIPER_MODE: parallel (default, fastest) | lazy (sequential) |
+        // streamed (needs a streaming-VITS model — standard piper voices panic).
+        // Note: piper-rs synthesizes the whole text as ONE task for standard
+        // voices, so first chunk == last chunk and ttfa == total either way.
+        let mode = std::env::var("PIPER_MODE").unwrap_or_else(|_| "parallel".to_string());
         for i in 0..N_RUNS {
             let t0 = Instant::now();
-            // Lazy (sequential, one chunk per sentence) so first-chunk time is a
-            // true time-to-first-audio; parallel would synthesize out of order.
-            let stream = piper
-                .synthesize_lazy(s.text.clone(), None)
-                .expect("synth failed");
             let mut samples: Vec<f32> = Vec::new();
             let mut ttfa_ms = 0.0f64;
-            for chunk in stream {
+            let mut stamp = |samples: &Vec<f32>, ttfa: &mut f64, t0: &Instant| {
                 if samples.is_empty() {
-                    ttfa_ms = t0.elapsed().as_secs_f64() * 1000.0;
+                    *ttfa = t0.elapsed().as_secs_f64() * 1000.0;
                 }
-                samples.extend_from_slice(chunk.expect("chunk failed").samples.as_slice());
+            };
+            match mode.as_str() {
+                "parallel" => {
+                    let stream = piper.synthesize_parallel(s.text.clone(), None).expect("synth failed");
+                    for chunk in stream {
+                        stamp(&samples, &mut ttfa_ms, &t0);
+                        samples.extend_from_slice(chunk.expect("chunk failed").samples.as_slice());
+                    }
+                }
+                "lazy" => {
+                    let stream = piper.synthesize_lazy(s.text.clone(), None).expect("synth failed");
+                    for chunk in stream {
+                        stamp(&samples, &mut ttfa_ms, &t0);
+                        samples.extend_from_slice(chunk.expect("chunk failed").samples.as_slice());
+                    }
+                }
+                _ => {
+                    // 100ms chunks (sr samples / 10), small padding
+                    let sr_usize = sr as usize;
+                    let stream = piper
+                        .synthesize_streamed(s.text.clone(), None, sr_usize / 10, 3)
+                        .expect("synth failed");
+                    for chunk in stream {
+                        stamp(&samples, &mut ttfa_ms, &t0);
+                        samples.extend_from_slice(chunk.expect("chunk failed").as_slice());
+                    }
+                }
             }
             let elapsed_ms = t0.elapsed().as_secs_f64() * 1000.0;
             if i > 0 {

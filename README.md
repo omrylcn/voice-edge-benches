@@ -17,12 +17,14 @@ row also carries a UTMOS naturalness score.
 
 ## Five findings
 
-**1. Rust ONNX usually beats Python ONNX on the same model — up to 2×, but
-not universally.** Same weights, same sentence; only the runtime differs.
-Supertonic step4 short: **203 ms (Rust) vs 446 ms (Python)**; Kokoro fp32 long
-RTF 0.22 vs 0.27. The exception: Piper ryan-high runs *faster* in Python
-(long RTF 0.145 vs 0.205) — the Rust crate's sequential phonemize+synth path
-costs more than Python's wrapper overhead there. Measure your own combo.
+**1. Rust ONNX beats Python ONNX where wrapper overhead matters — up to 2× —
+and ties where inference dominates.** Same weights, same sentence; only the
+runtime differs. Supertonic step4 short: **203 ms (Rust) vs 446 ms (Python)**;
+Kokoro fp32 long RTF 0.22 vs 0.27. Piper is a wash (ryan-high long RTF 0.143
+vs 0.145): VITS inference is so dominant that the wrapper's language stops
+mattering. Corollary: benchmark your own model+wrapper combo — and mind the
+wrapper's *mode* (piper-rs's sequential `lazy` mode looked 20% slower until we
+switched to its `parallel` mode).
 
 **2. int8 quantization is architecture-dependent, not a free win.**
 On a **transformer** (Pocket-TTS) int8 is *faster* than fp32 (long RTF 0.36 →
@@ -63,14 +65,14 @@ onnxruntime 1.27 / ort 2.0-rc9. ⚠️ = slower than real-time.
 <!-- DASHBOARD:BEGIN -->
 | Engine | Runtime | short (ms) | long (ms) | RTF long | TTFA long (ms) | cold start (ms) | MOS | listen |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| Piper lessacmed | Rust ONNX | 52 | 534 | 0.034 | 534 | 747 | 4.43 | [short](results/audio/piper_lessacmed_rust_short.wav) · [long](results/audio/piper_lessacmed_rust_long.wav) |
+| Piper lessacmed | Rust ONNX | 58 | 561 | 0.036 | 561 | 793 | 4.43 | [short](results/audio/piper_lessacmed_rust_short.wav) · [long](results/audio/piper_lessacmed_rust_long.wav) |
 | Piper lessacmed | Python ONNX | 51 | 630 | 0.037 | 252 | 1,156 | 4.05 | [short](results/audio/piper_lessacmed_python_short.wav) · [long](results/audio/piper_lessacmed_python_long.wav) |
 | Supertonic step4 | Rust ONNX | 203 | 1,683 | 0.080 | 1,335 | 635 | 3.77 | [short](results/audio/supertonic_step4_rust_short.wav) · [long](results/audio/supertonic_step4_rust_long.wav) |
+| Piper ryanhigh | Rust ONNX | 202 | 2,464 | 0.143 | 2,464 | 631 | 4.49 | [short](results/audio/piper_ryanhigh_rust_short.wav) · [long](results/audio/piper_ryanhigh_rust_long.wav) |
 | Piper ryanhigh | Python ONNX | 297 | 2,311 | 0.145 | 868 | 892 | 4.47 | [short](results/audio/piper_ryanhigh_python_short.wav) · [long](results/audio/piper_ryanhigh_python_long.wav) |
 | Pocket-TTS int8 | C++ ONNX | 698 | 2,526 | 0.145 | 44 | 445 | 4.06 | [short](results/audio/pocket_int8_cpp_short.wav) · [long](results/audio/pocket_int8_cpp_long.wav) |
 | Supertonic step4 | Python ONNX | 446 | 3,322 | 0.150 | — | — | 3.97 | [short](results/audio/supertonic_step4_python_short.wav) · [long](results/audio/supertonic_step4_python_long.wav) |
 | Supertonic step8 | Rust ONNX | 427 | 3,584 | 0.171 | 2,883 | 904 | 4.42 | [short](results/audio/supertonic_step8_rust_short.wav) · [long](results/audio/supertonic_step8_rust_long.wav) |
-| Piper ryanhigh | Rust ONNX | 376 | 3,515 | 0.205 | 3,515 | 716 | 4.49 | [short](results/audio/piper_ryanhigh_rust_short.wav) · [long](results/audio/piper_ryanhigh_rust_long.wav) |
 | Kokoro fp32 | Rust ONNX | 382 | 4,227 | 0.217 | 4,227 | 761 | 4.51 | [short](results/audio/kokoro_fp32_rust_short.wav) · [long](results/audio/kokoro_fp32_rust_long.wav) |
 | Supertonic step8 | Python ONNX | 665 | 4,952 | 0.224 | — | — | 4.50 | [short](results/audio/supertonic_step8_python_short.wav) · [long](results/audio/supertonic_step8_python_long.wav) |
 | Kokoro fp32 | Python ONNX | 642 | 5,096 | 0.273 | 5,096 | 706 | 4.52 | [short](results/audio/kokoro_fp32_python_short.wav) · [long](results/audio/kokoro_fp32_python_long.wav) |
@@ -106,9 +108,9 @@ a fresh result.json show — for the new metrics.
 
 ### Reading the numbers
 
-- **Runtime, not the model, usually sets the speed floor.** Supertonic, Kokoro
-  and Piper lessac are all faster in Rust ONNX than Python ONNX with identical
-  weights; Piper ryan-high is the counterexample (see finding 1).
+- **Runtime overhead matters in proportion to how light the model is.**
+  Supertonic and Kokoro are clearly faster in Rust ONNX with identical weights;
+  Piper ties (see finding 1) — its VITS inference dwarfs any wrapper cost.
 - **The Kokoro-Rust rows got 4× faster** than our first measurements after a
   Kokoros/ort upgrade (long RTF 0.86 → 0.22) — runtime version matters as much
   as runtime language.
