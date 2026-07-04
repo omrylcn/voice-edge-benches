@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 const N_RUNS: usize = 10;
-const VOICE: &str = "en_US-ryan-high";
+const DEFAULT_VOICE: &str = "en_US-ryan-high";
 
 #[derive(Deserialize)]
 struct Fixtures {
@@ -43,7 +43,7 @@ struct SentenceResult {
 struct Result {
     engine: &'static str,
     lang: &'static str,
-    voice: &'static str,
+    voice: String,
     cold_start_ms: f64,
     warmup_ms: f64,
     rss_after_load_mb: f64,
@@ -109,14 +109,21 @@ fn main() {
     let models_dir = std::env::var("TTS_MODELS_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| repo_root.join("models"));
+    // PIPER_VOICE switches the voice (default en_US-ryan-high; the default
+    // keeps its historical results/piper-rust dir, others get a suffixed dir).
+    let voice = std::env::var("PIPER_VOICE").unwrap_or_else(|_| DEFAULT_VOICE.to_string());
     let piper_dir = models_dir.join("piper");
-    let onnx_path = piper_dir.join(format!("{}.onnx", VOICE));
-    let config_path = piper_dir.join(format!("{}.onnx.json", VOICE));
+    let onnx_path = piper_dir.join(format!("{}.onnx", voice));
+    let config_path = piper_dir.join(format!("{}.onnx.json", voice));
     let fixtures_path = repo_root.join("fixtures/sentences.json");
-    let results_dir = repo_root.join("results/piper-rust");
+    let results_dir = if voice == DEFAULT_VOICE {
+        repo_root.join("results/piper-rust")
+    } else {
+        repo_root.join(format!("results/piper-rust-{}", voice))
+    };
     fs::create_dir_all(&results_dir).unwrap();
 
-    println!("Loading Piper voice: {}", VOICE);
+    println!("Loading Piper voice: {}", voice);
     let rss_before = rss_mb();
     let t0 = Instant::now();
     let _ = &onnx_path; // 0.1.9 config'ten onnx yolunu kendi çözer
@@ -210,7 +217,7 @@ fn main() {
     let result = Result {
         engine: "piper",
         lang: "rust",
-        voice: VOICE,
+        voice,
         cold_start_ms: (cold_start.as_secs_f64() * 1000.0 * 10.0).round() / 10.0,
         warmup_ms: (warmup_ms_total * 10.0).round() / 10.0,
         rss_after_load_mb: (rss_after * 10.0).round() / 10.0,

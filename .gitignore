@@ -30,3 +30,4 @@ results/**/*medium.wav
 
 # Local project notes for Claude — not published
 CLAUDE.md
+benches/upstream/

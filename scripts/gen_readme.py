@@ -28,10 +28,13 @@ FRESH = {
     "piper|lessacmed|python": ("piper-python-en_US-lessac-medium/result.json", "short", "long"),
     "piper|ryanhigh|python": ("piper-python-en_US-ryan-high/result.json", "short", "long"),
     "piper|ryanhigh|rust": ("piper-rust/result.json", "short", "long"),
+    "piper|lessacmed|rust": ("piper-rust-en_US-lessac-medium/result.json", "short", "long"),
     "kokoro|fp32|python": ("kokoro-python/result.json", "short", "long"),
     "kokoro|int8|python": ("kokoro-python-int8/result.json", "short", "long"),
     "kokoro|fp32|rust": ("kokoro-rust/result.json", "short", "long"),
+    "kokoro|int8|rust": ("kokoro-rust-int8/result.json", "short", "long"),
     "supertonic|step8|rust": ("supertonic-rust/result.json", "en_short", "en_long"),
+    "supertonic|step4|rust": ("supertonic-rust-step4/result.json", "en_short", "en_long"),
     "pocket|fp32|cpp": ("pocket-cpp/result_fp32.json", "short", "long"),
     "pocket|int8|cpp": ("pocket-cpp/result_int8.json", "short", "long"),
 }

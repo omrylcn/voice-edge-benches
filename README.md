@@ -17,9 +17,12 @@ row also carries a UTMOS naturalness score.
 
 ## Five findings
 
-**1. Rust ONNX beats Python ONNX on the same model — every time, by 1.5–2×.**
-Same weights, same sentence; only the runtime differs. The gap is Python call
-overhead. Supertonic step4 short: **215 ms (Rust) vs 446 ms (Python)**.
+**1. Rust ONNX usually beats Python ONNX on the same model — up to 2×, but
+not universally.** Same weights, same sentence; only the runtime differs.
+Supertonic step4 short: **203 ms (Rust) vs 446 ms (Python)**; Kokoro fp32 long
+RTF 0.22 vs 0.27. The exception: Piper ryan-high runs *faster* in Python
+(long RTF 0.145 vs 0.205) — the Rust crate's sequential phonemize+synth path
+costs more than Python's wrapper overhead there. Measure your own combo.
 
 **2. int8 quantization is architecture-dependent, not a free win.**
 On a **transformer** (Pocket-TTS) int8 is *faster* than fp32 (long RTF 0.36 →
@@ -36,9 +39,10 @@ and decide.**
 **4. Total synth time is the wrong latency metric — TTFA is what you feel.**
 Streaming engines deliver first audio long before synthesis finishes: Pocket
 int8 speaks after **~45 ms** while the full 18 s paragraph takes 2.5 s to
-render; Piper streams sentence-by-sentence (long: first audio at ~250 ms of a
-630 ms synth). Kokoro (via `kokoro-onnx`) batches up to 510 phonemes and can't
-stream early at all — its TTFA equals total time.
+render; Piper's Python lib streams sentence-by-sentence (long: first audio at
+~250 ms of a 630 ms synth — its Rust crate doesn't yield early). Kokoro (via
+`kokoro-onnx`/Kokoros) batches whole texts and can't stream early at all — its
+TTFA equals total time.
 
 **5. int8 costs (almost) no quality.** Where int8 changes speed, UTMOS barely
 moves: Kokoro 4.51 → 4.49, Pocket 4.11 → 4.06. The int8 decision is purely
@@ -59,19 +63,19 @@ onnxruntime 1.27 / ort 2.0-rc9. ⚠️ = slower than real-time.
 <!-- DASHBOARD:BEGIN -->
 | Engine | Runtime | short (ms) | long (ms) | RTF long | TTFA long (ms) | cold start (ms) | MOS | listen |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Piper lessacmed | Rust ONNX | 52 | 534 | 0.034 | 534 | 747 | 4.43 | [short](results/audio/piper_lessacmed_rust_short.wav) · [long](results/audio/piper_lessacmed_rust_long.wav) |
 | Piper lessacmed | Python ONNX | 51 | 630 | 0.037 | 252 | 1,156 | 4.05 | [short](results/audio/piper_lessacmed_python_short.wav) · [long](results/audio/piper_lessacmed_python_long.wav) |
-| Piper lessacmed | Rust ONNX | 91 | 705 | 0.043 | — | — | 4.43 | [short](results/audio/piper_lessacmed_rust_short.wav) · [long](results/audio/piper_lessacmed_rust_long.wav) |
-| Supertonic step4 | Rust ONNX | 215 | 1,767 | 0.084 | — | — | 3.77 | [short](results/audio/supertonic_step4_rust_short.wav) · [long](results/audio/supertonic_step4_rust_long.wav) |
+| Supertonic step4 | Rust ONNX | 203 | 1,683 | 0.080 | 1,335 | 635 | 3.77 | [short](results/audio/supertonic_step4_rust_short.wav) · [long](results/audio/supertonic_step4_rust_long.wav) |
+| Piper ryanhigh | Python ONNX | 297 | 2,311 | 0.145 | 868 | 892 | 4.47 | [short](results/audio/piper_ryanhigh_python_short.wav) · [long](results/audio/piper_ryanhigh_python_long.wav) |
 | Pocket-TTS int8 | C++ ONNX | 698 | 2,526 | 0.145 | 44 | 445 | 4.06 | [short](results/audio/pocket_int8_cpp_short.wav) · [long](results/audio/pocket_int8_cpp_long.wav) |
 | Supertonic step4 | Python ONNX | 446 | 3,322 | 0.150 | — | — | 3.97 | [short](results/audio/supertonic_step4_python_short.wav) · [long](results/audio/supertonic_step4_python_long.wav) |
 | Supertonic step8 | Rust ONNX | 427 | 3,584 | 0.171 | 2,883 | 904 | 4.42 | [short](results/audio/supertonic_step8_rust_short.wav) · [long](results/audio/supertonic_step8_rust_long.wav) |
-| Piper ryanhigh | Python ONNX | 232 | 2,938 | 0.185 | — | 939 | 4.47 | [short](results/audio/piper_ryanhigh_python_short.wav) · [long](results/audio/piper_ryanhigh_python_long.wav) |
 | Piper ryanhigh | Rust ONNX | 376 | 3,515 | 0.205 | 3,515 | 716 | 4.49 | [short](results/audio/piper_ryanhigh_rust_short.wav) · [long](results/audio/piper_ryanhigh_rust_long.wav) |
+| Kokoro fp32 | Rust ONNX | 382 | 4,227 | 0.217 | 4,227 | 761 | 4.51 | [short](results/audio/kokoro_fp32_rust_short.wav) · [long](results/audio/kokoro_fp32_rust_long.wav) |
 | Supertonic step8 | Python ONNX | 665 | 4,952 | 0.224 | — | — | 4.50 | [short](results/audio/supertonic_step8_python_short.wav) · [long](results/audio/supertonic_step8_python_long.wav) |
 | Kokoro fp32 | Python ONNX | 642 | 5,096 | 0.273 | 5,096 | 706 | 4.52 | [short](results/audio/kokoro_fp32_python_short.wav) · [long](results/audio/kokoro_fp32_python_long.wav) |
 | Pocket-TTS fp32 | C++ ONNX | 1,171 | 6,412 | 0.359 | 85 | 735 | 4.11 | [short](results/audio/pocket_fp32_cpp_short.wav) · [long](results/audio/pocket_fp32_cpp_long.wav) |
-| Kokoro fp32 | Rust ONNX | 1,480 | 16,729 | 0.856 | — | 645 | 4.51 | [short](results/audio/kokoro_fp32_rust_short.wav) · [long](results/audio/kokoro_fp32_rust_long.wav) |
-| Kokoro int8 | Rust ONNX | 1,482 | 16,732 | 0.856 | — | — | 4.47 | [short](results/audio/kokoro_int8_rust_short.wav) · [long](results/audio/kokoro_int8_rust_long.wav) |
+| Kokoro int8 | Rust ONNX | 1,644 | 18,228 | 0.932 | 18,228 | 632 | 4.47 | [short](results/audio/kokoro_int8_rust_short.wav) · [long](results/audio/kokoro_int8_rust_long.wav) |
 | Kokoro int8 | Python ONNX | 2,349 | 23,651 | 1.264 ⚠️ | 23,649 | 906 | 4.49 | [short](results/audio/kokoro_int8_python_short.wav) · [long](results/audio/kokoro_int8_python_long.wav) |
 
 ### Thread scaling (long sentence RTF)
@@ -102,8 +106,12 @@ a fresh result.json show — for the new metrics.
 
 ### Reading the numbers
 
-- **Runtime, not the model, sets the speed floor.** Every engine is faster in
-  Rust ONNX than Python ONNX — identical weights, so it's pure runtime overhead.
+- **Runtime, not the model, usually sets the speed floor.** Supertonic, Kokoro
+  and Piper lessac are all faster in Rust ONNX than Python ONNX with identical
+  weights; Piper ryan-high is the counterexample (see finding 1).
+- **The Kokoro-Rust rows got 4× faster** than our first measurements after a
+  Kokoros/ort upgrade (long RTF 0.86 → 0.22) — runtime version matters as much
+  as runtime language.
 - **int8's ⚠️ row** (Kokoro int8 Python, long RTF 1.26) is the headline caveat:
   dynamic int8 on conv layers without VNNI is a regression, not an optimization.
   Pocket (transformer) is the opposite — int8 is its fastest **and**

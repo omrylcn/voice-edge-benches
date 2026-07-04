@@ -27,6 +27,7 @@ struct SentenceResult {
     p50_ms: f64,
     p95_ms: f64,
     mean_ms: f64,
+    ttfa_ms: f64,
     rtf: f64,
     wav_bytes: usize,
     runs: usize,
@@ -38,6 +39,7 @@ struct Result {
     lang: &'static str,
     voice: &'static str,
     cold_start_ms: f64,
+    warmup_ms: f64,
     rss_after_load_mb: f64,
     rss_load_delta_mb: f64,
     rss_final_mb: f64,
@@ -96,10 +98,17 @@ async fn main() {
     let models_dir = std::env::var("TTS_MODELS_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| repo_root.join("models"));
-    let model_path = models_dir.join("kokoro-v1.0.onnx");
+    // KOKORO_MODEL=kokoro-v1.0.int8.onnx switches to the int8 variant
+    let model_file = std::env::var("KOKORO_MODEL")
+        .unwrap_or_else(|_| "kokoro-v1.0.onnx".to_string());
+    let model_path = models_dir.join(&model_file);
     let voices_path = models_dir.join("voices-v1.0.bin");
     let fixtures_path = repo_root.join("fixtures/sentences.json");
-    let results_dir = repo_root.join("results/kokoro-rust");
+    let results_dir = if model_file.contains("int8") {
+        repo_root.join("results/kokoro-rust-int8")
+    } else {
+        repo_root.join("results/kokoro-rust")
+    };
     fs::create_dir_all(&results_dir).unwrap();
 
     println!("Loading Kokoro voice: {}", VOICE);
@@ -121,23 +130,39 @@ async fn main() {
     ).unwrap();
 
     let mut all_results = Vec::new();
+    let mut warmup_ms_total = 0.0f64;
 
-    for s in &fixtures.sentences {
+    for (si, s) in fixtures.sentences.iter().enumerate() {
         println!("--- {} ({} words) ---", s.id, s.words);
         let mut timings_ms: Vec<f64> = Vec::new();
+        let mut ttfa_ms_runs: Vec<f64> = Vec::new();
         let mut last_samples: Vec<f32> = Vec::new();
 
         for i in 0..N_RUNS {
             let t0 = Instant::now();
-            let samples = tts.tts_raw_audio(
+            let mut samples: Vec<f32> = Vec::new();
+            let mut ttfa_ms = 0.0f64;
+            tts.tts_raw_audio_streaming(
                 &s.text,
                 "en-us",
                 VOICE,
                 1.0,
                 None, None, None, None,
+                |chunk| {
+                    if samples.is_empty() {
+                        ttfa_ms = t0.elapsed().as_secs_f64() * 1000.0;
+                    }
+                    samples.extend_from_slice(&chunk);
+                    Ok(())
+                },
             ).expect("synth failed");
             let elapsed_ms = t0.elapsed().as_secs_f64() * 1000.0;
-            if i > 0 { timings_ms.push(elapsed_ms); }
+            if i > 0 {
+                timings_ms.push(elapsed_ms);
+                ttfa_ms_runs.push(ttfa_ms);
+            } else if si == 0 {
+                warmup_ms_total = elapsed_ms; // first-ever inference after load
+            }
             last_samples = samples;
         }
 
@@ -150,9 +175,10 @@ async fn main() {
         let p50 = percentile(&sorted, 0.50);
         let p95 = percentile(&sorted, 0.95);
         let mean = timings_ms.iter().sum::<f64>() / timings_ms.len() as f64;
+        let ttfa = ttfa_ms_runs.iter().sum::<f64>() / ttfa_ms_runs.len() as f64;
         let rtf = (mean / 1000.0) / duration_s;
 
-        println!("  p50: {:.0} ms | p95: {:.0} ms | mean: {:.0} ms", p50, p95, mean);
+        println!("  p50: {:.0} ms | p95: {:.0} ms | mean: {:.0} ms | ttfa: {:.0} ms", p50, p95, mean, ttfa);
         println!("  audio: {:.2}s @ {}Hz | RTF: {:.3}", duration_s, SR, rtf);
         println!("  wav:   {} ({} bytes)", wav_path.file_name().unwrap().to_string_lossy(), wav_bytes);
 
@@ -164,6 +190,7 @@ async fn main() {
             p50_ms: (p50 * 10.0).round() / 10.0,
             p95_ms: (p95 * 10.0).round() / 10.0,
             mean_ms: (mean * 10.0).round() / 10.0,
+            ttfa_ms: (ttfa * 10.0).round() / 10.0,
             rtf: (rtf * 10000.0).round() / 10000.0,
             wav_bytes,
             runs: timings_ms.len(),
@@ -176,6 +203,7 @@ async fn main() {
         lang: "rust",
         voice: VOICE,
         cold_start_ms: (cold_start.as_secs_f64() * 1000.0 * 10.0).round() / 10.0,
+        warmup_ms: (warmup_ms_total * 10.0).round() / 10.0,
         rss_after_load_mb: (rss_after * 10.0).round() / 10.0,
         rss_load_delta_mb: ((rss_after - rss_before) * 10.0).round() / 10.0,
         rss_final_mb: (rss_final * 10.0).round() / 10.0,

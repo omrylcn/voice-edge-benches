@@ -16,7 +16,7 @@ const N_RUNS: usize = 10;
 // Layout: <supertonic>/onnx/*.onnx + <supertonic>/voice_styles/F1.json
 const VOICE_STYLE_REL: &str = "voice_styles/F1.json";
 const ONNX_DIR_REL: &str = "onnx";
-const TOTAL_STEP: usize = 8;
+const DEFAULT_STEP: usize = 8; // SUPERTONIC_STEP overrides (e.g. 4)
 const SPEED: f32 = 1.05;
 const P: f32 = 0.3;
 
@@ -86,11 +86,19 @@ fn main() -> Result<()> {
     let models_dir = std::env::var("TTS_MODELS_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| repo_root.join("models"));
+    let total_step: usize = std::env::var("SUPERTONIC_STEP")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_STEP);
     let supertonic_dir = models_dir.join("supertonic");
     let onnx_dir = supertonic_dir.join(ONNX_DIR_REL);
     let voice_style = supertonic_dir.join(VOICE_STYLE_REL);
     let fixtures_path = repo_root.join("fixtures/sentences_multi.json");
-    let results_dir = repo_root.join("results/supertonic-rust");
+    let results_dir = if total_step == DEFAULT_STEP {
+        repo_root.join("results/supertonic-rust")
+    } else {
+        repo_root.join(format!("results/supertonic-rust-step{}", total_step))
+    };
     fs::create_dir_all(&results_dir)?;
     let fixtures_text = fs::read_to_string(&fixtures_path)?;
 
@@ -125,7 +133,7 @@ fn main() -> Result<()> {
             let t0 = Instant::now();
             let mut ttfa_ms = 0.0f64;
             let (audio, duration) = tts.call_with_chunk_hook(
-                &s.text, &lang, &style, TOTAL_STEP, SPEED, P,
+                &s.text, &lang, &style, total_step, SPEED, P,
                 &mut |ci| {
                     if ci == 0 {
                         ttfa_ms = t0.elapsed().as_secs_f64() * 1000.0;
@@ -184,7 +192,7 @@ fn main() -> Result<()> {
         engine: "supertonic",
         lang: "rust",
         voice: PathBuf::from(VOICE_STYLE_REL).file_stem().unwrap().to_string_lossy().to_string(),
-        total_step: TOTAL_STEP,
+        total_step,
         speed: SPEED,
         cold_start_ms: (cold_start.as_secs_f64() * 1000.0 * 10.0).round() / 10.0,
         warmup_ms: (warmup_ms_total * 10.0).round() / 10.0,
