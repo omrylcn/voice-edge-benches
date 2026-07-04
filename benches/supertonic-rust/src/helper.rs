@@ -708,7 +708,12 @@ impl TextToSpeech {
         silence_duration: f32,
         on_chunk: &mut dyn FnMut(usize),
     ) -> Result<(Vec<f32>, f32)> {
-        let max_len = if lang == "ko" || lang == "ja" { 120 } else { 300 };
+        // SUPERTONIC_MAX_LEN overrides the chunk size (chars). Smaller chunks
+        // -> earlier first audio, at the cost of more inter-chunk silences.
+        let max_len = std::env::var("SUPERTONIC_MAX_LEN")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(if lang == "ko" || lang == "ja" { 120 } else { 300 });
         let chunks = chunk_text(text, Some(max_len));
 
         let mut wav_cat: Vec<f32> = Vec::new();
