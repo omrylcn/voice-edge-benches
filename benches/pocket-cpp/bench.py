@@ -9,8 +9,9 @@ Unlike the other engines, Pocket has no Python/Rust ONNX binding here — it run
 through the VolgaGerm/PocketTTS.cpp C++ runtime. This wrapper drives that binary
 as a subprocess, timing fp32 vs int8 on the same short/long sentences, and writes
 result.json + WAVs under results/pocket-cpp/. The per-sentence schema matches the
-other benches (p50_ms/p95_ms/mean_ms/rtf/wav_bytes); process-level fields
-(cold_start_ms, rss_*) are absent because the engine runs out-of-process.
+other benches (p50_ms/p95_ms/mean_ms/ttfa_ms/rtf/wav_bytes). cold_start_ms and
+ttfa_ms are parsed from the binary's --profile output ("Loaded in Xs" / "First
+chunk latency"); rss_* fields are absent because the engine runs out-of-process.
 
 NOTE: because we shell out per synthesis, the measured time includes process
 startup + model load each run. So Pocket's short-sentence numbers are inflated
@@ -26,6 +27,7 @@ Models are resolved from TTS_MODELS_DIR/pocket (default <repo>/models/pocket).
 from __future__ import annotations
 import json
 import os
+import re
 import statistics
 import struct
 import subprocess
@@ -40,6 +42,7 @@ RESULTS_DIR = REPO / "results" / "pocket-cpp"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 BIN = os.environ.get("POCKET_BIN", "")
+THREADS = os.environ.get("TTS_THREADS", "")  # ONNX thread budget (binary --threads)
 VOICE = os.environ.get("POCKET_VOICE", "piper-high")
 VOICES_DIR = MODELS_DIR / "voices"
 TOKENIZER = MODELS_DIR / "tokenizer.model"
@@ -69,13 +72,27 @@ def wav_duration(path: str) -> float:
     return n / sr
 
 
-def run(precision: str, text: str, out: str) -> list[float]:
+_TTFA_RE = re.compile(r"First chunk latency:\s*([\d.]+)\s*ms")
+_LOAD_RE = re.compile(r"Loaded in\s*([\d.]+)\s*s")
+
+
+def run(precision: str, text: str, out: str):
+    """Returns (wall_times_ms, ttfa_ms_list, load_ms_list).
+
+    Wall time is the full subprocess (spawn + model load + synth). The binary's
+    --profile output gives the internal split: "Loaded in Xs" (model load) and
+    "First chunk latency: Xms" (TTFA, clocked after load — comparable with the
+    in-process benches).
+    """
     cmd = [BIN, "--precision", precision, "--models-dir", str(MODELS_DIR),
            "--voices-dir", str(VOICES_DIR),
-           "--tokenizer", str(TOKENIZER), text, VOICE, out]
+           "--tokenizer", str(TOKENIZER), "--profile"]
+    if THREADS:
+        cmd += ["--threads", THREADS]
+    cmd += [text, VOICE, out]
     Path(out).unlink(missing_ok=True)  # never measure a stale WAV
     subprocess.run(cmd, capture_output=True)  # warmup (builds .emb cache)
-    times = []
+    times, ttfas, loads = [], [], []
     for _ in range(N_RUNS):
         t = time.perf_counter()
         proc = subprocess.run(cmd, capture_output=True, text=True)
@@ -83,9 +100,16 @@ def run(precision: str, text: str, out: str) -> list[float]:
         if proc.returncode != 0:
             raise SystemExit(f"pocket-tts failed (exit {proc.returncode}):\n"
                              f"{proc.stderr.strip()}")
+        blob = proc.stdout + proc.stderr
+        m = _TTFA_RE.search(blob)
+        if m:
+            ttfas.append(float(m.group(1)))
+        m = _LOAD_RE.search(blob)
+        if m:
+            loads.append(float(m.group(1)) * 1000)
     if not Path(out).exists():
         raise SystemExit(f"pocket-tts exited 0 but wrote no WAV: {out}")
-    return times
+    return times, ttfas, loads
 
 
 def main() -> None:
@@ -98,26 +122,36 @@ def main() -> None:
     for precision in ("fp32", "int8"):
         results = {"engine": "pocket", "runtime": f"cpp-{precision}",
                    "voice": VOICE, "sentences": []}
+        load_ms_all: list[float] = []
         for sid, s in picks.items():
             out = str(RESULTS_DIR / f"{precision}_{sid}.wav")
-            times = run(precision, s["text"], out)
+            times, ttfas, loads = run(precision, s["text"], out)
             times.sort()
             mean = statistics.mean(times)
             p50 = times[len(times) // 2]
             p95 = times[min(len(times) - 1, int(len(times) * 0.95))]
+            ttfa = statistics.mean(ttfas) if ttfas else None
+            load_ms_all.extend(loads)
             dur = wav_duration(out)
             # rtf from mean, matching the other benches
             rtf = (mean / 1000) / dur if dur else 0
+            ttfa_str = f"{ttfa:8.1f}ms" if ttfa is not None else "     n/a"
             print(f"pocket {precision} {sid:5s}  mean {mean:8.1f}ms  "
-                  f"p50 {p50:8.1f}ms  audio {dur:5.2f}s  RTF {rtf:.4f}")
+                  f"p50 {p50:8.1f}ms  ttfa {ttfa_str}  audio {dur:5.2f}s  RTF {rtf:.4f}")
             results["sentences"].append({
                 "id": sid, "words": s["words"],
                 "audio_duration_s": round(dur, 3), "sample_rate": 24000,
                 "p50_ms": round(p50, 1), "p95_ms": round(p95, 1),
-                "mean_ms": round(mean, 1), "rtf": round(rtf, 4),
+                "mean_ms": round(mean, 1),
+                "ttfa_ms": round(ttfa, 1) if ttfa is not None else None,
+                "rtf": round(rtf, 4),
                 "wav_bytes": Path(out).stat().st_size,
                 "runs": N_RUNS,
             })
+        # Model-load time inside the subprocess ("Loaded in Xs"): the closest
+        # equivalent of the other benches' cold_start_ms.
+        if load_ms_all:
+            results["cold_start_ms"] = round(statistics.mean(load_ms_all), 1)
         out_path = RESULTS_DIR / f"result_{precision}.json"
         out_path.write_text(json.dumps(results, indent=2))
         print(f"  → {out_path}")

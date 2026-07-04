@@ -693,15 +693,31 @@ impl TextToSpeech {
         speed: f32,
         silence_duration: f32,
     ) -> Result<(Vec<f32>, f32)> {
+        self.call_with_chunk_hook(text, lang, style, total_step, speed, silence_duration, &mut |_| {})
+    }
+
+    /// Like `call`, but invokes `on_chunk(i)` the moment chunk i's audio is
+    /// ready — lets callers stamp time-to-first-audio.
+    pub fn call_with_chunk_hook(
+        &mut self,
+        text: &str,
+        lang: &str,
+        style: &Style,
+        total_step: usize,
+        speed: f32,
+        silence_duration: f32,
+        on_chunk: &mut dyn FnMut(usize),
+    ) -> Result<(Vec<f32>, f32)> {
         let max_len = if lang == "ko" || lang == "ja" { 120 } else { 300 };
         let chunks = chunk_text(text, Some(max_len));
-        
+
         let mut wav_cat: Vec<f32> = Vec::new();
         let mut dur_cat: f32 = 0.0;
 
         for (i, chunk) in chunks.iter().enumerate() {
             let (wav, duration) = self._infer(&[chunk.clone()], &[lang.to_string()], style, total_step, speed)?;
-            
+            on_chunk(i);
+
             let dur = duration[0];
             let wav_len = (self.sample_rate as f32 * dur) as usize;
             let wav_chunk = &wav[..wav_len.min(wav.len())];
@@ -820,14 +836,22 @@ pub fn load_text_to_speech(onnx_dir: &str, use_gpu: bool) -> Result<TextToSpeech
     let vector_est_path = format!("{}/vector_estimator.onnx", onnx_dir);
     let vocoder_path = format!("{}/vocoder.onnx", onnx_dir);
 
-    let dp_ort = Session::builder()?
-        .commit_from_file(&dp_path)?;
-    let text_enc_ort = Session::builder()?
-        .commit_from_file(&text_enc_path)?;
-    let vector_est_ort = Session::builder()?
-        .commit_from_file(&vector_est_path)?;
-    let vocoder_ort = Session::builder()?
-        .commit_from_file(&vocoder_path)?;
+    // TTS_THREADS caps ONNX intra-op parallelism (default: ort's own default).
+    let intra_threads: Option<usize> = std::env::var("TTS_THREADS")
+        .ok()
+        .and_then(|v| v.parse().ok());
+    let build_session = |path: &str| -> Result<Session> {
+        let mut b = Session::builder()?;
+        if let Some(n) = intra_threads {
+            b = b.with_intra_threads(n)?;
+        }
+        Ok(b.commit_from_file(path)?)
+    };
+
+    let dp_ort = build_session(&dp_path)?;
+    let text_enc_ort = build_session(&text_enc_path)?;
+    let vector_est_ort = build_session(&vector_est_path)?;
+    let vocoder_ort = build_session(&vocoder_path)?;
 
     let unicode_indexer_path = format!("{}/unicode_indexer.json", onnx_dir);
     let text_processor = UnicodeProcessor::new(&unicode_indexer_path)?;

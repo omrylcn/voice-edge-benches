@@ -71,23 +71,39 @@ def main() -> None:
 
     syn_cfg = SynthesisConfig(length_scale=1.0)
 
+    warmup_ms_total = 0.0
     for s in sentences:
         sid, text, words = s["id"], s["text"], s["words"]
         print(f"--- {sid} ({words} words) ---")
         timings_ms: list[float] = []
+        ttfa_ms_runs: list[float] = []
         audio_bytes_last = b""
 
-        # Warmup + measured
+        # Warmup + measured. Chunked synthesize() (one chunk per sentence) so we
+        # can stamp time-to-first-audio; chunks are assembled into the same WAV
+        # synthesize_wav would have produced.
         for i in range(N_RUNS):
             gc.collect()
             t0 = time.perf_counter()
+            ttfa_ms = 0.0
             buf = io.BytesIO()
             with wave.open(buf, "wb") as wf:
-                model.synthesize_wav(text, wf, syn_config=syn_cfg)
+                first = True
+                for chunk in model.synthesize(text, syn_config=syn_cfg):
+                    if first:
+                        ttfa_ms = (time.perf_counter() - t0) * 1000
+                        wf.setnchannels(chunk.sample_channels)
+                        wf.setsampwidth(chunk.sample_width)
+                        wf.setframerate(chunk.sample_rate)
+                        first = False
+                    wf.writeframes(chunk.audio_int16_bytes)
             elapsed_ms = (time.perf_counter() - t0) * 1000
             audio_bytes_last = buf.getvalue()
             if i > 0:  # discard warmup
                 timings_ms.append(elapsed_ms)
+                ttfa_ms_runs.append(ttfa_ms)
+            elif sid == sentences[0]["id"]:
+                warmup_ms_total = elapsed_ms  # first-ever inference after load
 
         # Save audio output (last run)
         wav_path = RESULTS_DIR / f"{sid}.wav"
@@ -102,8 +118,9 @@ def main() -> None:
         p95 = sorted(timings_ms)[int(len(timings_ms) * 0.95)] if len(timings_ms) > 1 else timings_ms[0]
         mean = statistics.mean(timings_ms)
         rtf = (mean / 1000) / duration_s  # real-time factor (<1 = faster than realtime)
+        ttfa = statistics.mean(ttfa_ms_runs)
 
-        print(f"  p50: {p50:.0f} ms | p95: {p95:.0f} ms | mean: {mean:.0f} ms")
+        print(f"  p50: {p50:.0f} ms | p95: {p95:.0f} ms | mean: {mean:.0f} ms | ttfa: {ttfa:.0f} ms")
         print(f"  audio: {duration_s:.2f}s @ {sr}Hz | RTF: {rtf:.3f}")
         print(f"  wav:   {wav_path.name} ({len(audio_bytes_last)} bytes)")
 
@@ -115,12 +132,14 @@ def main() -> None:
             "p50_ms": round(p50, 1),
             "p95_ms": round(p95, 1),
             "mean_ms": round(mean, 1),
+            "ttfa_ms": round(ttfa, 1),
             "rtf": round(rtf, 4),
             "wav_bytes": len(audio_bytes_last),
             "runs": len(timings_ms),
         })
 
     rss_final = _rss_mb()
+    results["warmup_ms"] = round(warmup_ms_total, 1)
     results["rss_final_mb"] = round(rss_final, 1)
 
     out_path = RESULTS_DIR / "result.json"

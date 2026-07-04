@@ -1,0 +1,34 @@
+{
+  "engine": "pocket",
+  "runtime": "cpp-fp32",
+  "voice": "piper-high",
+  "sentences": [
+    {
+      "id": "short",
+      "words": 6,
+      "audio_duration_s": 1.28,
+      "sample_rate": 24000,
+      "p50_ms": 1251.4,
+      "p95_ms": 1532.4,
+      "mean_ms": 1339.9,
+      "ttfa_ms": 62.3,
+      "rtf": 1.0468,
+      "wav_bytes": 122924,
+      "runs": 3
+    },
+    {
+      "id": "long",
+      "words": 58,
+      "audio_duration_s": 17.76,
+      "sample_rate": 24000,
+      "p50_ms": 5817.8,
+      "p95_ms": 6127.5,
+      "mean_ms": 5869.8,
+      "ttfa_ms": 71.0,
+      "rtf": 0.3305,
+      "wav_bytes": 1705004,
+      "runs": 3
+    }
+  ],
+  "cold_start_ms": 748.3
+}

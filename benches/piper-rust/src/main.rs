@@ -33,6 +33,7 @@ struct SentenceResult {
     p50_ms: f64,
     p95_ms: f64,
     mean_ms: f64,
+    ttfa_ms: f64,
     rtf: f64,
     wav_bytes: usize,
     runs: usize,
@@ -44,6 +45,7 @@ struct Result {
     lang: &'static str,
     voice: &'static str,
     cold_start_ms: f64,
+    warmup_ms: f64,
     rss_after_load_mb: f64,
     rss_load_delta_mb: f64,
     rss_final_mb: f64,
@@ -131,26 +133,37 @@ fn main() {
         serde_json::from_str(&fs::read_to_string(&fixtures_path).unwrap()).unwrap();
 
     let mut all_results = Vec::new();
+    let mut warmup_ms_total = 0.0f64;
 
-    for s in &fixtures.sentences {
+    for (si, s) in fixtures.sentences.iter().enumerate() {
         println!("--- {} ({} words) ---", s.id, s.words);
         let mut timings_ms: Vec<f64> = Vec::new();
+        let mut ttfa_ms_runs: Vec<f64> = Vec::new();
         let mut last_samples: Vec<f32> = Vec::new();
         let mut last_sr: u32 = 22050;
 
         let sr = piper.clone_model().audio_output_info().unwrap().sample_rate as u32;
         for i in 0..N_RUNS {
             let t0 = Instant::now();
+            // Lazy (sequential, one chunk per sentence) so first-chunk time is a
+            // true time-to-first-audio; parallel would synthesize out of order.
             let stream = piper
-                .synthesize_parallel(s.text.clone(), None)
+                .synthesize_lazy(s.text.clone(), None)
                 .expect("synth failed");
             let mut samples: Vec<f32> = Vec::new();
+            let mut ttfa_ms = 0.0f64;
             for chunk in stream {
+                if samples.is_empty() {
+                    ttfa_ms = t0.elapsed().as_secs_f64() * 1000.0;
+                }
                 samples.extend_from_slice(chunk.expect("chunk failed").samples.as_slice());
             }
             let elapsed_ms = t0.elapsed().as_secs_f64() * 1000.0;
             if i > 0 {
                 timings_ms.push(elapsed_ms);
+                ttfa_ms_runs.push(ttfa_ms);
+            } else if si == 0 {
+                warmup_ms_total = elapsed_ms; // first-ever inference after load
             }
             last_samples = samples;
             last_sr = sr;
@@ -165,11 +178,12 @@ fn main() {
         let p50 = percentile(&sorted, 0.50);
         let p95 = percentile(&sorted, 0.95);
         let mean = timings_ms.iter().sum::<f64>() / timings_ms.len() as f64;
+        let ttfa = ttfa_ms_runs.iter().sum::<f64>() / ttfa_ms_runs.len() as f64;
         let rtf = (mean / 1000.0) / duration_s;
 
         println!(
-            "  p50: {:.0} ms | p95: {:.0} ms | mean: {:.0} ms",
-            p50, p95, mean
+            "  p50: {:.0} ms | p95: {:.0} ms | mean: {:.0} ms | ttfa: {:.0} ms",
+            p50, p95, mean, ttfa
         );
         println!(
             "  audio: {:.2}s @ {}Hz | RTF: {:.3}",
@@ -185,6 +199,7 @@ fn main() {
             p50_ms: (p50 * 10.0).round() / 10.0,
             p95_ms: (p95 * 10.0).round() / 10.0,
             mean_ms: (mean * 10.0).round() / 10.0,
+            ttfa_ms: (ttfa * 10.0).round() / 10.0,
             rtf: (rtf * 10000.0).round() / 10000.0,
             wav_bytes,
             runs: timings_ms.len(),
@@ -197,6 +212,7 @@ fn main() {
         lang: "rust",
         voice: VOICE,
         cold_start_ms: (cold_start.as_secs_f64() * 1000.0 * 10.0).round() / 10.0,
+        warmup_ms: (warmup_ms_total * 10.0).round() / 10.0,
         rss_after_load_mb: (rss_after * 10.0).round() / 10.0,
         rss_load_delta_mb: ((rss_after - rss_before) * 10.0).round() / 10.0,
         rss_final_mb: (rss_final * 10.0).round() / 10.0,

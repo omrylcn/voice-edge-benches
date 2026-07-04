@@ -36,6 +36,7 @@ struct SentenceResult {
     p50_ms: f64,
     p95_ms: f64,
     mean_ms: f64,
+    ttfa_ms: f64,
     rtf: f64,
     wav_bytes: usize,
     runs: usize,
@@ -49,6 +50,7 @@ struct BenchResult {
     total_step: usize,
     speed: f32,
     cold_start_ms: f64,
+    warmup_ms: f64,
     rss_after_load_mb: f64,
     rss_load_delta_mb: f64,
     rss_final_mb: f64,
@@ -109,19 +111,34 @@ fn main() -> Result<()> {
     let fixtures: Fixtures = serde_json::from_str(&fixtures_text)?;
 
     let mut all_results = Vec::new();
+    let mut warmup_ms_total = 0.0f64;
 
-    for s in &fixtures.sentences {
+    for (si, s) in fixtures.sentences.iter().enumerate() {
         let lang = s.lang.clone().unwrap_or_else(|| "en".to_string());
         println!("--- {} [{}] ({} words) ---", s.id, lang, s.words);
         let mut timings_ms: Vec<f64> = Vec::new();
+        let mut ttfa_ms_runs: Vec<f64> = Vec::new();
         let mut last_audio: Vec<f32> = Vec::new();
         let mut last_duration: f32 = 0.0;
 
         for i in 0..N_RUNS {
             let t0 = Instant::now();
-            let (audio, duration) = tts.call(&s.text, &lang, &style, TOTAL_STEP, SPEED, P)?;
+            let mut ttfa_ms = 0.0f64;
+            let (audio, duration) = tts.call_with_chunk_hook(
+                &s.text, &lang, &style, TOTAL_STEP, SPEED, P,
+                &mut |ci| {
+                    if ci == 0 {
+                        ttfa_ms = t0.elapsed().as_secs_f64() * 1000.0;
+                    }
+                },
+            )?;
             let elapsed_ms = t0.elapsed().as_secs_f64() * 1000.0;
-            if i > 0 { timings_ms.push(elapsed_ms); }
+            if i > 0 {
+                timings_ms.push(elapsed_ms);
+                ttfa_ms_runs.push(ttfa_ms);
+            } else if si == 0 {
+                warmup_ms_total = elapsed_ms; // first-ever inference after load
+            }
             last_audio = audio;
             last_duration = duration;
         }
@@ -140,9 +157,10 @@ fn main() -> Result<()> {
         let p50 = percentile(&sorted, 0.50);
         let p95 = percentile(&sorted, 0.95);
         let mean = timings_ms.iter().sum::<f64>() / timings_ms.len() as f64;
+        let ttfa = ttfa_ms_runs.iter().sum::<f64>() / ttfa_ms_runs.len() as f64;
         let rtf = (mean / 1000.0) / duration_s;
 
-        println!("  p50: {:.0} ms | p95: {:.0} ms | mean: {:.0} ms", p50, p95, mean);
+        println!("  p50: {:.0} ms | p95: {:.0} ms | mean: {:.0} ms | ttfa: {:.0} ms", p50, p95, mean, ttfa);
         println!("  audio: {:.2}s @ {}Hz | RTF: {:.3}", duration_s, sr, rtf);
 
         all_results.push(SentenceResult {
@@ -154,6 +172,7 @@ fn main() -> Result<()> {
             p50_ms: (p50 * 10.0).round() / 10.0,
             p95_ms: (p95 * 10.0).round() / 10.0,
             mean_ms: (mean * 10.0).round() / 10.0,
+            ttfa_ms: (ttfa * 10.0).round() / 10.0,
             rtf: (rtf * 10000.0).round() / 10000.0,
             wav_bytes,
             runs: timings_ms.len(),
@@ -168,6 +187,7 @@ fn main() -> Result<()> {
         total_step: TOTAL_STEP,
         speed: SPEED,
         cold_start_ms: (cold_start.as_secs_f64() * 1000.0 * 10.0).round() / 10.0,
+        warmup_ms: (warmup_ms_total * 10.0).round() / 10.0,
         rss_after_load_mb: (rss_after * 10.0).round() / 10.0,
         rss_load_delta_mb: ((rss_after - rss_before) * 10.0).round() / 10.0,
         rss_final_mb: (rss_final * 10.0).round() / 10.0,

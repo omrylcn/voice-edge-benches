@@ -13,6 +13,7 @@ Run with: ./.venv/bin/python bench.py
 """
 from __future__ import annotations
 
+import asyncio
 import gc
 import json
 import os
@@ -55,6 +56,19 @@ def _samples_to_wav_bytes(samples: np.ndarray, sr: int) -> bytes:
     return buf.getvalue()
 
 
+async def _synth_stream(kokoro: Kokoro, text: str, t0: float):
+    """Drain create_stream(), stamping time-to-first-audio against t0."""
+    chunks: list[np.ndarray] = []
+    sr = 24000
+    ttfa_ms = 0.0
+    async for audio, sr in kokoro.create_stream(text, voice=VOICE, speed=1.0, lang="en-us"):
+        if not chunks:
+            ttfa_ms = (time.perf_counter() - t0) * 1000
+        chunks.append(audio)
+    full = np.concatenate(chunks) if chunks else np.zeros(0)
+    return full, sr, ttfa_ms
+
+
 def main() -> None:
     fixtures = json.loads(FIXTURES.read_text())
     sentences = fixtures["sentences"]
@@ -80,20 +94,26 @@ def main() -> None:
         "sentences": [],
     }
 
-    for s in [x for x in sentences if x["id"] in ("short","long")]:
+    warmup_ms_total = 0.0
+    picks = [x for x in sentences if x["id"] in ("short", "long")]
+    for s in picks:
         sid, text, words = s["id"], s["text"], s["words"]
         print(f"--- {sid} ({words} words) ---")
         timings_ms: list[float] = []
+        ttfa_ms_runs: list[float] = []
         last_audio: np.ndarray = np.zeros(0)
         last_sr: int = 24000
 
         for i in range(N_RUNS):
             gc.collect()
             t0 = time.perf_counter()
-            audio, sr = kokoro.create(text, voice=VOICE, speed=1.0, lang="en-us")
+            audio, sr, ttfa_ms = asyncio.run(_synth_stream(kokoro, text, t0))
             elapsed_ms = (time.perf_counter() - t0) * 1000
             if i > 0:
                 timings_ms.append(elapsed_ms)
+                ttfa_ms_runs.append(ttfa_ms)
+            elif sid == picks[0]["id"]:
+                warmup_ms_total = elapsed_ms  # first-ever inference after load
             last_audio = audio
             last_sr = sr
 
@@ -106,8 +126,9 @@ def main() -> None:
         p95 = sorted(timings_ms)[int(len(timings_ms) * 0.95)] if len(timings_ms) > 1 else timings_ms[0]
         mean = statistics.mean(timings_ms)
         rtf = (mean / 1000) / duration_s
+        ttfa = statistics.mean(ttfa_ms_runs)
 
-        print(f"  p50: {p50:.0f} ms | p95: {p95:.0f} ms | mean: {mean:.0f} ms")
+        print(f"  p50: {p50:.0f} ms | p95: {p95:.0f} ms | mean: {mean:.0f} ms | ttfa: {ttfa:.0f} ms")
         print(f"  audio: {duration_s:.2f}s @ {last_sr}Hz | RTF: {rtf:.3f}")
         print(f"  wav:   {wav_path.name} ({len(wav_bytes)} bytes)")
 
@@ -119,12 +140,14 @@ def main() -> None:
             "p50_ms": round(p50, 1),
             "p95_ms": round(p95, 1),
             "mean_ms": round(mean, 1),
+            "ttfa_ms": round(ttfa, 1),
             "rtf": round(rtf, 4),
             "wav_bytes": len(wav_bytes),
             "runs": len(timings_ms),
         })
 
     rss_final = _rss_mb()
+    results["warmup_ms"] = round(warmup_ms_total, 1)
     results["rss_final_mb"] = round(rss_final, 1)
     out_path = RESULTS_DIR / "result.json"
     out_path.write_text(json.dumps(results, indent=2))
