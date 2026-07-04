@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["torch", "soundfile", "numpy"]
+# dependencies = ["torch", "torchaudio", "soundfile", "numpy"]
 # ///
 """UTMOS quality scoring for the benchmark WAVs.
 

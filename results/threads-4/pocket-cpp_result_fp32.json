@@ -8,11 +8,11 @@
       "words": 6,
       "audio_duration_s": 1.28,
       "sample_rate": 24000,
-      "p50_ms": 1184.8,
-      "p95_ms": 1198.7,
-      "mean_ms": 1171.3,
-      "ttfa_ms": 48.0,
-      "rtf": 0.9151,
+      "p50_ms": 1176.4,
+      "p95_ms": 1215.2,
+      "mean_ms": 1174.9,
+      "ttfa_ms": 63.7,
+      "rtf": 0.9179,
       "wav_bytes": 122924,
       "runs": 3
     },
@@ -21,14 +21,15 @@
       "words": 58,
       "audio_duration_s": 17.84,
       "sample_rate": 24000,
-      "p50_ms": 5824.0,
-      "p95_ms": 7746.2,
-      "mean_ms": 6411.6,
-      "ttfa_ms": 85.3,
-      "rtf": 0.3594,
+      "p50_ms": 5385.3,
+      "p95_ms": 5387.1,
+      "mean_ms": 5333.5,
+      "ttfa_ms": 73.7,
+      "rtf": 0.299,
       "wav_bytes": 1712684,
       "runs": 3
     }
   ],
-  "cold_start_ms": 735.0
+  "cold_start_ms": 708.3,
+  "threads": 4
 }

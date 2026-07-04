@@ -843,7 +843,10 @@ pub fn load_text_to_speech(onnx_dir: &str, use_gpu: bool) -> Result<TextToSpeech
     let build_session = |path: &str| -> Result<Session> {
         let mut b = Session::builder()?;
         if let Some(n) = intra_threads {
-            b = b.with_intra_threads(n)?;
+            // map_err: ort::Error<SessionBuilder> is not Send, anyhow needs Send
+            b = b
+                .with_intra_threads(n)
+                .map_err(|e| anyhow::anyhow!("with_intra_threads: {e}"))?;
         }
         Ok(b.commit_from_file(path)?)
     };

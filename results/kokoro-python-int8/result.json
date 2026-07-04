@@ -2,34 +2,37 @@
   "engine": "kokoro",
   "lang": "python",
   "voice": "af_heart",
-  "cold_start_ms": 605.6,
-  "rss_after_load_mb": 214.8,
-  "rss_load_delta_mb": 138.7,
+  "cold_start_ms": 906.0,
+  "rss_after_load_mb": 220.3,
+  "rss_load_delta_mb": 136.1,
   "sentences": [
     {
       "id": "short",
       "words": 6,
       "audio_duration_s": 1.493,
       "sample_rate": 24000,
-      "p50_ms": 2225.8,
-      "p95_ms": 2233.3,
-      "mean_ms": 2225.8,
-      "rtf": 1.4905,
+      "p50_ms": 2349.1,
+      "p95_ms": 2354.1,
+      "mean_ms": 2349.1,
+      "ttfa_ms": 2348.4,
+      "rtf": 1.5731,
       "wav_bytes": 71724,
       "runs": 2
     },
     {
       "id": "long",
       "words": 58,
-      "audio_duration_s": 18.645,
+      "audio_duration_s": 18.709,
       "sample_rate": 24000,
-      "p50_ms": 22459.3,
-      "p95_ms": 22587.9,
-      "mean_ms": 22459.3,
-      "rtf": 1.2046,
-      "wav_bytes": 895020,
+      "p50_ms": 23650.9,
+      "p95_ms": 23893.3,
+      "mean_ms": 23650.9,
+      "ttfa_ms": 23649.2,
+      "rtf": 1.2641,
+      "wav_bytes": 898092,
       "runs": 2
     }
   ],
-  "rss_final_mb": 1023.4
+  "warmup_ms": 3743.1,
+  "rss_final_mb": 1042.9
 }

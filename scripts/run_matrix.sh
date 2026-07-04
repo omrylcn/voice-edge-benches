@@ -15,12 +15,15 @@ THREAD_COUNTS=("${@:-1 4}")
 [ $# -eq 0 ] && THREAD_COUNTS=(1 4)
 
 cores_arg() { # N -> "0" or "0-3"
-  local n=$1
+  local n
+  n=$1
   if [ "$n" -le 1 ]; then echo "0"; else echo "0-$((n - 1))"; fi
 }
 
 snapshot() { # N: copy fresh result jsons into results/threads-N/, tagging thread count
-  local n=$1 dest="$REPO/results/threads-$n"
+  local n dest
+  n=$1
+  dest="$REPO/results/threads-$n"
   mkdir -p "$dest"
   for f in \
     results/piper-python-*/result.json \

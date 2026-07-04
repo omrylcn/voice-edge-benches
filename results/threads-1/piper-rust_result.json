@@ -1,0 +1,78 @@
+{
+  "engine": "piper",
+  "lang": "rust",
+  "voice": "en_US-ryan-high",
+  "cold_start_ms": 736.7,
+  "warmup_ms": 360.5,
+  "rss_after_load_mb": 176.0,
+  "rss_load_delta_mb": 158.3,
+  "rss_final_mb": 828.1,
+  "sentences": [
+    {
+      "id": "short",
+      "words": 6,
+      "audio_duration_s": 1.451,
+      "sample_rate": 22050,
+      "p50_ms": 251.4,
+      "p95_ms": 308.5,
+      "mean_ms": 252.9,
+      "ttfa_ms": 252.9,
+      "rtf": 0.1743,
+      "wav_bytes": 64044,
+      "runs": 9
+    },
+    {
+      "id": "medium",
+      "words": 22,
+      "audio_duration_s": 6.757,
+      "sample_rate": 22050,
+      "p50_ms": 959.9,
+      "p95_ms": 1061.5,
+      "mean_ms": 956.8,
+      "ttfa_ms": 956.7,
+      "rtf": 0.1416,
+      "wav_bytes": 298028,
+      "runs": 9
+    },
+    {
+      "id": "long",
+      "words": 58,
+      "audio_duration_s": 17.067,
+      "sample_rate": 22050,
+      "p50_ms": 2512.0,
+      "p95_ms": 5590.1,
+      "mean_ms": 3140.0,
+      "ttfa_ms": 3139.8,
+      "rtf": 0.184,
+      "wav_bytes": 752684,
+      "runs": 9
+    },
+    {
+      "id": "pron_tricky",
+      "words": 14,
+      "audio_duration_s": 4.865,
+      "sample_rate": 22050,
+      "p50_ms": 784.2,
+      "p95_ms": 1498.6,
+      "mean_ms": 908.5,
+      "ttfa_ms": 908.5,
+      "rtf": 0.1868,
+      "wav_bytes": 214572,
+      "runs": 9
+    },
+    {
+      "id": "numbers",
+      "words": 18,
+      "audio_duration_s": 7.349,
+      "sample_rate": 22050,
+      "p50_ms": 1115.3,
+      "p95_ms": 1398.9,
+      "mean_ms": 1187.8,
+      "ttfa_ms": 1187.7,
+      "rtf": 0.1616,
+      "wav_bytes": 324140,
+      "runs": 9
+    }
+  ],
+  "threads": 1
+}
