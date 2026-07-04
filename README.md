@@ -7,7 +7,8 @@ Planned: **STT** (speech-to-text) benches in the same harness.
 *same* ONNX model through different runtimes?** This benchmark drives four TTS
 engines — **Supertonic, Piper, Kokoro, Pocket-TTS** — through **Rust ONNX** and
 **Python ONNX** runtimes (C++ for Pocket), on the *same* sentences, and measures
-real synthesis latency. It also isolates the effect of **int8 quantization**,
+synthesis latency, **time-to-first-audio**, cold start, thread scaling and
+**UTMOS naturalness**. It also isolates the effect of **int8 quantization**,
 which turns out to depend entirely on model architecture.
 
 Everything below is measured on real hardware. **Every row links to its audio**
@@ -21,10 +22,10 @@ Same weights, same sentence; only the runtime differs. The gap is Python call
 overhead. Supertonic step4 short: **215 ms (Rust) vs 446 ms (Python)**.
 
 **2. int8 quantization is architecture-dependent, not a free win.**
-On a **transformer** (Pocket-TTS) int8 is *faster* than fp32 (long RTF 0.30 →
-0.13 ✓). On **conv-heavy** models (Kokoro, Supertonic) int8 dynamic on a
-non-VNNI CPU is **3× *slower*** (Kokoro long RTF 0.25 → 0.86 ✗). Don't quantize a
-conv model expecting speed.
+On a **transformer** (Pocket-TTS) int8 is *faster* than fp32 (long RTF 0.36 →
+0.14 ✓, 2.5×). On **conv-heavy** models (Kokoro, Supertonic) int8 dynamic on a
+non-VNNI CPU is a **regression**: Kokoro long RTF 0.27 → 1.26 ✗ — 4.6× slower
+and no longer real-time. Don't quantize a conv model expecting speed.
 
 **3. Quality vs speed is a per-engine knob — and now it's measurable.**
 Supertonic's flow-matching `step` count trades quality for speed: UTMOS says
@@ -103,9 +104,10 @@ a fresh result.json show — for the new metrics.
 
 - **Runtime, not the model, sets the speed floor.** Every engine is faster in
   Rust ONNX than Python ONNX — identical weights, so it's pure runtime overhead.
-- **int8's ⚠️ rows** (Kokoro) are the headline caveat: dynamic int8 on conv
-  layers without VNNI is a regression, not an optimization. Pocket (transformer)
-  is the opposite — int8 is its fastest mode.
+- **int8's ⚠️ row** (Kokoro int8 Python, long RTF 1.26) is the headline caveat:
+  dynamic int8 on conv layers without VNNI is a regression, not an optimization.
+  Pocket (transformer) is the opposite — int8 is its fastest **and**
+  lowest-TTFA mode (44 ms to first audio).
 - **Pocket's short-sentence times are inflated**: its bench shells out per
   synthesis, so process start + model load are included. Compare Pocket on the
   **long** sentence. Every other engine measures in-process.
@@ -170,6 +172,14 @@ cargo run --release --bin bench --manifest-path benches/supertonic-rust/Cargo.to
 
 Each writes `result.json` + WAVs under `results/`. `TTS_MODELS_DIR` overrides
 where models are read from.
+
+**Extras:**
+
+```bash
+scripts/run_matrix.sh 1 4            # thread-scaling matrix → results/threads-N/
+uv run scripts/quality_utmos.py      # UTMOS MOS scores → results/quality_utmos.json
+python3 scripts/gen_readme.py        # regenerate the README results tables
+```
 
 > **Linux/Piper Rust:** the build links espeak-ng, which needs `libpcaudio`.
 > Install `libpcaudio-dev` or build with `RUSTFLAGS="-l pcaudio" cargo build`.
