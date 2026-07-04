@@ -94,7 +94,16 @@ def build_rows() -> list[dict]:
         row["mos_long"] = mos.get(wav_long)
         rows.append(row)
 
-    rows.sort(key=lambda r: (r["long_rtf"] is None, r["long_rtf"] or 0))
+    # Group same model variants together (runtimes adjacent) so Rust-vs-Python
+    # on identical weights reads line-by-line; groups ordered by their best RTF.
+    best = {}
+    for r in rows:
+        k = (r["engine"], r["variant"])
+        v = r["long_rtf"] if r["long_rtf"] is not None else 99
+        best[k] = min(best.get(k, 99), v)
+    rows.sort(key=lambda r: (best[(r["engine"], r["variant"])],
+                             r["engine"], r["variant"],
+                             r["long_rtf"] if r["long_rtf"] is not None else 99))
     return rows
 
 
