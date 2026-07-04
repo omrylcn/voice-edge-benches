@@ -1,4 +1,10 @@
-"""Kokoro Python baseline benchmark using kokoro-onnx package.
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["kokoro-onnx>=0.4", "numpy", "psutil", "soundfile"]
+# ///
+"""Kokoro int8 benchmark (kokoro-v1.0.int8.onnx). Slow on non-VNNI CPUs.
+
+Run with:  uv run bench_int8.py
 
 Mirrors piper-python/bench.py: same fixtures, same N_RUNS protocol, same
 output schema. Uses af_heart voice (Kokoro's default).

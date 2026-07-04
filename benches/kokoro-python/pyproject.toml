@@ -1,0 +1,16 @@
+[project]
+name = "kokoro-python-bench"
+version = "0.1.0"
+description = "Kokoro Python ONNX benchmark (fp32 + int8)"
+requires-python = ">=3.10"
+dependencies = [
+    "kokoro-onnx>=0.4",
+    "numpy",
+    "psutil",
+    "soundfile",
+]
+
+# Run:  uv run bench.py        (fp32)
+#       uv run bench_int8.py   (int8 — slow on non-VNNI CPUs)
+# Models resolved from TTS_MODELS_DIR (default ../../models):
+#   kokoro-v1.0.onnx, kokoro-v1.0.int8.onnx, voices-v1.0.bin

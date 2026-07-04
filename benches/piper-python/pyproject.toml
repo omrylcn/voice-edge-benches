@@ -1,0 +1,14 @@
+[project]
+name = "piper-python-bench"
+version = "0.1.0"
+description = "Piper (VITS) Python ONNX benchmark"
+requires-python = ">=3.10"
+dependencies = [
+    "piper-tts>=1.2",
+    "numpy",
+    "psutil",
+    "soundfile",
+]
+
+# Run:  uv run bench.py   (or: pip install -e . && python bench.py)
+# Models resolved from TTS_MODELS_DIR/piper (default ../../models/piper).

@@ -1,112 +1,106 @@
-# tts-onnx-bench
+# voice-onnx-benches
 
-**How fast — and how good — are CPU TTS engines when you run the *same* ONNX
-model through different runtimes?** This benchmark drives four text-to-speech
-engines (Supertonic, Piper, Kokoro, Pocket-TTS) through **Rust ONNX** and
-**Python ONNX** runtimes (plus C++ for Pocket), on the *same* sentences, and
-measures real synthesis latency. It also isolates the effect of **int8
-quantization** — which turns out to depend entirely on model architecture.
+CPU speech-model benchmarks on ONNX runtimes. Today: **TTS** (text-to-speech).
+Planned: **STT** (speech-to-text) benches in the same harness.
 
-All numbers below are measured, not estimated. Every row produced a real WAV you
-can listen to (see `dashboard.html` / `results/`).
+**How fast — and how good — are CPU text-to-speech engines when you run the
+*same* ONNX model through different runtimes?** This benchmark drives four TTS
+engines — **Supertonic, Piper, Kokoro, Pocket-TTS** — through **Rust ONNX** and
+**Python ONNX** runtimes (C++ for Pocket), on the *same* sentences, and measures
+real synthesis latency. It also isolates the effect of **int8 quantization**,
+which turns out to depend entirely on model architecture.
 
-## The three findings
+Everything below is measured on real hardware. **Every row has audio you can play
+right here in the README** — same sentence for all, so quality is directly
+comparable by ear.
 
-1. **Rust ONNX beats Python ONNX on the same model, every time** — by 1.5–2×.
-   Same weights, same sentence, only the runtime differs; the gap is Python
-   call overhead. E.g. Supertonic step4 short: **215 ms (Rust) vs 446 ms
-   (Python)**.
+## Three findings
 
-2. **int8 quantization is architecture-dependent, not a free win.**
-   - On a **transformer** (Pocket-TTS): int8 is *faster* than fp32 (long RTF
-     0.30 → 0.13). ✓
-   - On **conv-heavy** models (Kokoro, Supertonic): int8 dynamic on a non-VNNI
-     CPU is **3× *slower*** than fp32 (Kokoro long RTF 0.25 → 0.86). ✗
-   Don't quantize a conv model and expect speed.
+**1. Rust ONNX beats Python ONNX on the same model — every time, by 1.5–2×.**
+Same weights, same sentence; only the runtime differs. The gap is Python call
+overhead. Supertonic step4 short: **215 ms (Rust) vs 446 ms (Python)**.
 
-3. **Quality vs speed is a per-engine knob.** Supertonic's `step` count
-   (flow-matching denoising steps) trades quality for speed: step8 is smoothest
-   but slowest; step4 is nearly indistinguishable by ear and ~2× faster. Piper
-   (VITS, single pass) is the fastest of all but less warm.
+**2. int8 quantization is architecture-dependent, not a free win.**
+On a **transformer** (Pocket-TTS) int8 is *faster* than fp32 (long RTF 0.30 →
+0.13 ✓). On **conv-heavy** models (Kokoro, Supertonic) int8 dynamic on a
+non-VNNI CPU is **3× *slower*** (Kokoro long RTF 0.25 → 0.86 ✗). Don't quantize a
+conv model expecting speed.
 
-## Results
+**3. Quality vs speed is a per-engine knob.** Supertonic's flow-matching `step`
+count trades quality for speed: step8 is smoothest but slowest, step4 is nearly
+indistinguishable by ear and ~2× faster. Piper (VITS, single pass) is the fastest
+of all but less warm. **Listen below and decide.**
 
-Same sentences for everyone — short `"Hello, how are you today?"` (6 words) and
-a 58-word paragraph. `p50` = median synth time over 3 runs. `RTF` = synth time ÷
-audio duration (lower = faster; 0.10 means 10× real-time). Box: Intel i7-9700K,
-CPU-only, onnxruntime 1.27 / ort 2.0-rc9. ⚠ = slower than real-time.
+## Results — listen and compare
 
-| Engine | Variant | Runtime | short p50 | short RTF | long p50 | long RTF |
-|---|---|---|---:|---:|---:|---:|
-| Supertonic | step8 | Rust ONNX | 403 ms | 0.220 | 3210 ms | 0.154 |
-| Supertonic | step8 | Python ONNX | 665 ms | 0.341 | 4952 ms | 0.224 |
-| Supertonic | step4 | Rust ONNX | 215 ms | 0.118 | 1767 ms | 0.084 |
-| Supertonic | step4 | Python ONNX | 446 ms | 0.229 | 3322 ms | 0.150 |
-| Piper | ryan-high | Rust ONNX | 232 ms | 0.178 | 2802 ms | 0.161 |
-| Piper | ryan-high | Python ONNX | 191 ms | 0.168 | 2618 ms | 0.185 |
-| Piper | lessac-medium | Rust ONNX | 91 ms | 0.059 | 705 ms | 0.043 |
-| Piper | lessac-medium | Python ONNX | 54 ms | 0.037 | 657 ms | 0.040 |
-| Kokoro | fp32 | Rust ONNX | 440 ms | 0.213 | 4879 ms | 0.250 |
-| Kokoro | fp32 | Python ONNX | 557 ms | 0.408 | 5944 ms | 0.318 |
-| Kokoro | int8 | Rust ONNX | 1482 ms | 0.705 | 16732 ms | 0.856 ⚠ |
-| Kokoro | int8 | Python ONNX | 2226 ms | 1.490 | 22459 ms | 1.205 ⚠ |
-| Pocket-TTS | fp32 | C++ ONNX | 1142 ms | 0.951 | 5266 ms | 0.301 |
-| Pocket-TTS | int8 | C++ ONNX | 668 ms | 0.380 | 2414 ms | 0.134 |
+Same sentences for everyone: short `"Hello, how are you today?"` (6 words) and a
+58-word paragraph. `p50` = median synth time over 3 runs. `RTF` = synth ÷ audio
+duration (lower = faster; 0.10 = 10× real-time). Box: **Intel i7-9700K, CPU-only**
+(no VNNI), onnxruntime 1.27 / ort 2.0-rc9. ⚠️ = slower than real-time.
 
-Listen to all 28 clips in **`dashboard.html`** (open in a browser — audio is
-embedded).
+> Audio players render on GitHub. If your viewer strips `<audio>`, the WAVs are in
+> [`results/audio/`](results/audio/). A standalone offline page with all clips is
+> in [`dashboard.html`](dashboard.html).
+
+<!-- DASHBOARD -->
+
+### Reading the numbers
+
+- **Runtime, not the model, sets the speed floor.** Every engine is faster in
+  Rust ONNX than Python ONNX — identical weights, so it's pure runtime overhead.
+- **int8's ⚠️ rows** (Kokoro) are the headline caveat: dynamic int8 on conv
+  layers without VNNI is a regression, not an optimization. Pocket (transformer)
+  is the opposite — int8 is its fastest mode.
+- **Pocket's short-sentence times are inflated**: its bench shells out per
+  synthesis, so process start + model load are included. Compare Pocket on the
+  **long** sentence. Every other engine measures in-process.
+- **Best overall balance: Supertonic step4 on Rust ONNX** — near-step8 quality,
+  ~2× faster, warm 44.1 kHz. **Fastest raw: Piper lessac-medium** (long RTF
+  0.04) but a less natural voice.
 
 ## Repo layout
 
 ```
 benches/
-  piper-python/     bench.py            (piper-tts)
-  piper-rust/       src/main.rs         (piper-rs crate)
-  kokoro-python/    bench.py, bench_int8.py   (kokoro-onnx)
-  kokoro-rust/      src/main.rs         (Kokoros)
-  supertonic-rust/  src/{bench,helper}.rs   (Supertonic engine, vendored MIT)
-fixtures/           sentences.json, sentences_multi.json  (the shared test text)
-results/            per-engine result.json + sample WAVs
+  piper-python/     bench.py + pyproject.toml         (piper-tts)
+  piper-rust/       src/main.rs + Cargo.toml          (piper-rs crate)
+  kokoro-python/    bench.py, bench_int8.py + pyproject (kokoro-onnx)
+  kokoro-rust/      src/main.rs + Cargo.toml          (Kokoros)
+  supertonic-rust/  src/{bench,helper}.rs + Cargo     (Supertonic engine, vendored MIT)
+  pocket-cpp/       bench.py + src/pocket_tts.cpp      (PocketTTS.cpp, vendored MIT)
+fixtures/           sentences.json, sentences_multi.json   (shared test text)
+results/            per-engine result.json + audio/ (WAV clips)
 scripts/            download_models.sh
-dashboard.html      embedded-audio comparison page
-models/             weights — GIT-IGNORED, not shipped (see below)
+dashboard.html      offline embedded-audio page
+models/             weights — GIT-IGNORED, not shipped
 ```
 
 ## Run it yourself
 
-### 1. Get the models
-
-Model weights are **not** committed (large + license-restricted). Put them under
-`models/` (git-ignored). Either fetch them:
+### 1. Get the models (into `models/`, git-ignored)
 
 ```bash
 scripts/download_models.sh all          # piper + kokoro
 scripts/download_models.sh supertonic   # OpenRAIL-M — review license first
+scripts/download_models.sh pocket       # export instructions
 ```
 
-…or point at an existing copy with `TTS_MODELS_DIR=/path/to/models`. Expected
-layout:
-
-```
-models/
-  piper/en_US-lessac-medium.onnx(.json), en_US-ryan-high.onnx(.json)
-  kokoro-v1.0.onnx, kokoro-v1.0.int8.onnx, voices-v1.0.bin
-  supertonic/onnx/*.onnx (+ tts.json, unicode_indexer.json)
-  supertonic/voice_styles/F1.json
-```
+Or point at an existing copy with `TTS_MODELS_DIR=/path/to/models`. Expected
+layout: `models/piper/*.onnx(.json)`, `models/kokoro-v1.0*.onnx` +
+`voices-v1.0.bin`, `models/supertonic/{onnx,voice_styles}`, `models/pocket/*.onnx`.
 
 ### 2. Run a bench
 
-Python (each dir has its own venv needs — `pip install piper-tts` /
-`kokoro-onnx`, plus `psutil soundfile numpy`):
+**Python** (each dir has a `pyproject.toml` — `uv run bench.py`, or
+`pip install -e .` then `python bench.py`):
 
 ```bash
-python benches/piper-python/bench.py            # PIPER_VOICE=en_US-ryan-high to switch
-python benches/kokoro-python/bench.py
-python benches/kokoro-python/bench_int8.py       # slow on non-VNNI CPUs
+cd benches/piper-python   && uv run bench.py     # PIPER_VOICE=en_US-ryan-high to switch
+cd benches/kokoro-python  && uv run bench.py     # + uv run bench_int8.py (slow, non-VNNI)
+cd benches/pocket-cpp     && POCKET_BIN=/path/to/pocket-tts uv run bench.py
 ```
 
-Rust:
+**Rust**:
 
 ```bash
 cargo run --release --manifest-path benches/piper-rust/Cargo.toml
@@ -114,17 +108,17 @@ cargo run --release --manifest-path benches/kokoro-rust/Cargo.toml
 cargo run --release --bin bench --manifest-path benches/supertonic-rust/Cargo.toml
 ```
 
-Each writes `result.json` + WAVs under `results/`. Set `TTS_MODELS_DIR` to
-override where models are read from.
+Each writes `result.json` + WAVs under `results/`. `TTS_MODELS_DIR` overrides
+where models are read from.
 
-> Note (Linux): the Piper Rust build links espeak-ng, which needs `libpcaudio`.
-> Install `libpcaudio-dev`, or build with
-> `RUSTFLAGS="-l pcaudio" cargo build --release`.
+> **Linux/Piper Rust:** the build links espeak-ng, which needs `libpcaudio`.
+> Install `libpcaudio-dev` or build with `RUSTFLAGS="-l pcaudio" cargo build`.
 
 ## Licenses
 
-The **benchmark harness** (everything in `benches/`, `fixtures/`, `scripts/`) is
-MIT — see [LICENSE](LICENSE). The **engines and model weights** are third-party
-and keep their own licenses — see [NOTICE](NOTICE) for full attribution. Notably
-the Supertonic weights are **BigScience OpenRAIL-M** (use-based restrictions) and
+The **benchmark harness** (`benches/`, `fixtures/`, `scripts/`) is MIT — see
+[LICENSE](LICENSE). The **engines and model weights** are third-party with their
+own licenses — see [NOTICE](NOTICE). Vendored engine code (`supertonic-rust`
+helper, `pocket-cpp` source) keeps its upstream MIT license with attribution.
+The Supertonic weights are **BigScience OpenRAIL-M** (use-based restrictions) and
 are **not redistributed** here.

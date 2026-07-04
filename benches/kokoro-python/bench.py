@@ -1,4 +1,10 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["kokoro-onnx>=0.4", "numpy", "psutil", "soundfile"]
+# ///
 """Kokoro Python baseline benchmark using kokoro-onnx package.
+
+Run with:  uv run bench.py   (uv reads the inline deps above).
 
 Mirrors piper-python/bench.py: same fixtures, same N_RUNS protocol, same
 output schema. Uses af_heart voice (Kokoro's default).

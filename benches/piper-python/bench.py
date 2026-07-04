@@ -1,10 +1,15 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["piper-tts>=1.2", "numpy", "psutil", "soundfile"]
+# ///
 """Piper Python baseline benchmark.
 
-Reuses the production tts.py path (PiperVoice.synthesize_wav). Runs each
-fixture sentence N times warm (one warmup discarded), records wall-clock
-synthesis time, RAM delta, and writes WAV output for ear-test.
+Reuses the PiperVoice.synthesize_wav path. Runs each fixture sentence N times
+warm (one warmup discarded), records wall-clock synthesis time, RAM delta, and
+writes WAV output for ear-test.
 
-Run with: uv run python bench.py
+Run with:  uv run bench.py          (uv reads the inline deps above — nothing to
+install by hand). Or in a venv: pip install -e . && python bench.py
 """
 from __future__ import annotations
 

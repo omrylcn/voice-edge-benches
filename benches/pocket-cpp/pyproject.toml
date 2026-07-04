@@ -1,0 +1,14 @@
+[project]
+name = "pocket-cpp-bench"
+version = "0.1.0"
+description = "Pocket-TTS C++ ONNX benchmark driver (subprocess timing)"
+requires-python = ">=3.10"
+# bench.py only shells out to the compiled pocket-tts binary + reads WAVs;
+# no TTS package needed. export_onnx.py (model export) needs torch + onnx.
+dependencies = []
+
+[project.optional-dependencies]
+export = ["torch", "onnx", "onnxruntime", "safetensors"]
+
+# Run:  POCKET_BIN=/path/to/pocket-tts python bench.py
+# See README.md for building the C++ binary.

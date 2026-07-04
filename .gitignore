@@ -9,6 +9,10 @@ voices-v1.0.bin
 target/
 **/target/
 
+# C++ build artifacts (pocket-cpp)
+benches/pocket-cpp/build/
+benches/pocket-cpp/pocket-tts
+
 # Python envs / caches
 .venv/
 __pycache__/
@@ -23,3 +27,6 @@ results/**/pron_tricky.wav
 # OS junk
 .DS_Store
 results/**/*medium.wav
+
+# Local project notes for Claude — not published
+CLAUDE.md

@@ -1,4 +1,4 @@
-tts-onnx-bench — attribution & third-party licenses
+voice-onnx-benches — attribution & third-party licenses
 ====================================================
 
 This benchmark drives several third-party TTS engines and models. The harness

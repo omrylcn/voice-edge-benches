@@ -52,11 +52,20 @@ supertonic() {
   huggingface-cli download Supertone/supertonic-3 --local-dir "$MODELS/supertonic"
 }
 
+pocket() {
+  echo "== Pocket-TTS ONNX (export from Kyutai weights) =="
+  echo "   Pocket has no ready ONNX release. Export with the vendored script:"
+  echo "     pip install torch onnx onnxruntime safetensors"
+  echo "     python benches/pocket-cpp/export_onnx.py --output-dir $MODELS/pocket"
+  echo "   (needs the Kyutai pocket-tts weights; see benches/pocket-cpp/README.md)"
+}
+
 case "$WHAT" in
   piper) piper ;;
   kokoro) kokoro ;;
   supertonic) supertonic ;;
-  all) piper; kokoro; echo "(supertonic skipped in 'all' — run explicitly: scripts/download_models.sh supertonic)";;
-  *) echo "usage: $0 [piper|kokoro|supertonic|all]"; exit 1 ;;
+  pocket) pocket ;;
+  all) piper; kokoro; echo "(supertonic + pocket skipped in 'all' — run explicitly)";;
+  *) echo "usage: $0 [piper|kokoro|supertonic|pocket|all]"; exit 1 ;;
 esac
 echo "Done. Models in: $MODELS"
