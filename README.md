@@ -20,11 +20,11 @@ row also carries a UTMOS naturalness score.
 **1. Rust ONNX beats Python ONNX where wrapper overhead matters — up to 2× —
 and ties where inference dominates.** Same weights, same sentence; only the
 runtime differs. Supertonic step4 short: **203 ms (Rust) vs 446 ms (Python)**;
-Kokoro fp32 long RTF 0.22 vs 0.27. Piper is a wash (ryan-high long RTF 0.143
+Kokoro fp32 long RTF 0.22 vs 0.27. Piper is a wash (ryan-high long RTF 0.149
 vs 0.145): VITS inference is so dominant that the wrapper's language stops
 mattering. Corollary: benchmark your own model+wrapper combo — and mind the
-wrapper's *mode* (piper-rs's sequential `lazy` mode looked 20% slower until we
-switched to its `parallel` mode).
+wrapper's *mode*; piper-rs looked both 20% slower and unable to stream until
+we drove it sentence-by-sentence like the Python lib does internally.
 
 **2. int8 quantization is architecture-dependent, not a free win.**
 On a **transformer** (Pocket-TTS) int8 is *faster* than fp32 (long RTF 0.36 →
@@ -41,10 +41,12 @@ and decide.**
 **4. Total synth time is the wrong latency metric — TTFA is what you feel.**
 Streaming engines deliver first audio long before synthesis finishes: Pocket
 int8 speaks after **~45 ms** while the full 18 s paragraph takes 2.5 s to
-render; Piper's Python lib streams sentence-by-sentence (long: first audio at
-~250 ms of a 630 ms synth — its Rust crate doesn't yield early). Kokoro (via
-`kokoro-onnx`/Kokoros) batches whole texts and can't stream early at all — its
-TTFA equals total time.
+render; Piper streams sentence-by-sentence in both runtimes (long: first audio
+at ~250 ms of a ~600 ms synth). The Python lib does the sentence splitting
+internally; `piper-rs` doesn't, so our Rust bench replicates it at the app
+layer (`PIPER_MODE=sentences`, the default) — five lines any integrator would
+write. Kokoro (via `kokoro-onnx`/Kokoros) batches whole texts and can't stream
+early at all — its TTFA equals total time.
 
 **5. int8 costs (almost) no quality.** Where int8 changes speed, UTMOS barely
 moves: Kokoro 4.51 → 4.49, Pocket 4.11 → 4.06. The int8 decision is purely
@@ -65,12 +67,12 @@ onnxruntime 1.27 / ort 2.0-rc9. ⚠️ = slower than real-time.
 <!-- DASHBOARD:BEGIN -->
 | Engine | Runtime | short (ms) | long (ms) | RTF long | TTFA long (ms) | cold start (ms) | MOS | listen |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| Piper lessacmed | Rust ONNX | 58 | 561 | 0.036 | 561 | 793 | 4.43 | [short](results/audio/piper_lessacmed_rust_short.wav) · [long](results/audio/piper_lessacmed_rust_long.wav) |
 | Piper lessacmed | Python ONNX | 51 | 630 | 0.037 | 252 | 1,156 | 4.05 | [short](results/audio/piper_lessacmed_python_short.wav) · [long](results/audio/piper_lessacmed_python_long.wav) |
+| Piper lessacmed | Rust ONNX | 53 | 604 | 0.038 | 240 | 766 | 4.43 | [short](results/audio/piper_lessacmed_rust_short.wav) · [long](results/audio/piper_lessacmed_rust_long.wav) |
 | Supertonic step4 | Rust ONNX | 203 | 1,683 | 0.080 | 1,335 | 635 | 3.77 | [short](results/audio/supertonic_step4_rust_short.wav) · [long](results/audio/supertonic_step4_rust_long.wav) |
-| Piper ryanhigh | Rust ONNX | 202 | 2,464 | 0.143 | 2,464 | 631 | 4.49 | [short](results/audio/piper_ryanhigh_rust_short.wav) · [long](results/audio/piper_ryanhigh_rust_long.wav) |
 | Piper ryanhigh | Python ONNX | 297 | 2,311 | 0.145 | 868 | 892 | 4.47 | [short](results/audio/piper_ryanhigh_python_short.wav) · [long](results/audio/piper_ryanhigh_python_long.wav) |
 | Pocket-TTS int8 | C++ ONNX | 698 | 2,526 | 0.145 | 44 | 445 | 4.06 | [short](results/audio/pocket_int8_cpp_short.wav) · [long](results/audio/pocket_int8_cpp_long.wav) |
+| Piper ryanhigh | Rust ONNX | 191 | 2,385 | 0.149 | 918 | 653 | 4.49 | [short](results/audio/piper_ryanhigh_rust_short.wav) · [long](results/audio/piper_ryanhigh_rust_long.wav) |
 | Supertonic step4 | Python ONNX | 446 | 3,322 | 0.150 | — | — | 3.97 | [short](results/audio/supertonic_step4_python_short.wav) · [long](results/audio/supertonic_step4_python_long.wav) |
 | Supertonic step8 | Rust ONNX | 427 | 3,584 | 0.171 | 2,883 | 904 | 4.42 | [short](results/audio/supertonic_step8_rust_short.wav) · [long](results/audio/supertonic_step8_rust_long.wav) |
 | Kokoro fp32 | Rust ONNX | 382 | 4,227 | 0.217 | 4,227 | 761 | 4.51 | [short](results/audio/kokoro_fp32_rust_short.wav) · [long](results/audio/kokoro_fp32_rust_long.wav) |

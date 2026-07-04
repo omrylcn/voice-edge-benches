@@ -100,6 +100,26 @@ fn write_wav(path: &Path, samples: &[f32], sr: u32) -> std::io::Result<usize> {
     Ok(44 + data_len as usize)
 }
 
+/// Split text into sentences (keeps the terminator). Mirrors what piper's
+/// Python lib does internally before synthesizing chunk-by-chunk.
+fn split_sentences(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    for ch in text.chars() {
+        cur.push(ch);
+        if matches!(ch, '.' | '!' | '?') {
+            out.push(cur.trim().to_string());
+            cur.clear();
+        }
+    }
+    if !cur.trim().is_empty() {
+        out.push(cur.trim().to_string());
+    }
+    out.retain(|s| !s.is_empty());
+    if out.is_empty() { out.push(text.to_string()); }
+    out
+}
+
 fn main() {
     // repo root = benches/piper-rust/../.. ; models via TTS_MODELS_DIR (default <repo>/models)
     let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -150,11 +170,13 @@ fn main() {
         let mut last_sr: u32 = 22050;
 
         let sr = piper.clone_model().audio_output_info().unwrap().sample_rate as u32;
-        // PIPER_MODE: parallel (default, fastest) | lazy (sequential) |
-        // streamed (needs a streaming-VITS model — standard piper voices panic).
-        // Note: piper-rs synthesizes the whole text as ONE task for standard
-        // voices, so first chunk == last chunk and ttfa == total either way.
-        let mode = std::env::var("PIPER_MODE").unwrap_or_else(|_| "parallel".to_string());
+        // PIPER_MODE: sentences (default — split text and synthesize
+        // sentence-by-sentence, exactly what piper's Python lib does
+        // internally; gives a real time-to-first-audio) | parallel | lazy |
+        // streamed (needs a streaming-VITS model — standard voices panic).
+        // piper-rs itself synthesizes the whole text as ONE task, so in the
+        // non-sentence modes ttfa == total by construction.
+        let mode = std::env::var("PIPER_MODE").unwrap_or_else(|_| "sentences".to_string());
         for i in 0..N_RUNS {
             let t0 = Instant::now();
             let mut samples: Vec<f32> = Vec::new();
@@ -165,6 +187,15 @@ fn main() {
                 }
             };
             match mode.as_str() {
+                "sentences" => {
+                    for sentence in split_sentences(&s.text) {
+                        let stream = piper.synthesize_parallel(sentence, None).expect("synth failed");
+                        for chunk in stream {
+                            stamp(&samples, &mut ttfa_ms, &t0);
+                            samples.extend_from_slice(chunk.expect("chunk failed").samples.as_slice());
+                        }
+                    }
+                }
                 "parallel" => {
                     let stream = piper.synthesize_parallel(s.text.clone(), None).expect("synth failed");
                     for chunk in stream {
