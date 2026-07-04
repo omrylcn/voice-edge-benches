@@ -1,0 +1,57 @@
+tts-onnx-bench — attribution & third-party licenses
+====================================================
+
+This benchmark drives several third-party TTS engines and models. The harness
+code (benches/, fixtures/, scripts/) is MIT (see LICENSE). Everything below is
+NOT authored here — it belongs to its upstream project and keeps its own
+license. Model weights are NOT redistributed in this repo; fetch them yourself.
+
+Engines / code
+--------------
+- Supertonic (reference engine + Rust helper)
+    https://github.com/supertone-inc/supertonic
+    License: MIT (c) 2025 Supertone Inc.
+    Note: benches/supertonic-rust/src/helper.rs is adapted (unmodified engine
+    logic) from this repo so the bench builds standalone.
+
+- piper-rs (Rust Piper/VITS runtime)
+    https://crates.io/crates/piper-rs  (crate used by benches/piper-rust)
+    License: MIT
+
+- Piper (Python) — piper-tts
+    https://github.com/OHF-Voice/piper1-gpl
+    License: MIT
+
+- Kokoros (Rust Kokoro runtime)
+    https://github.com/lucasjinreal/Kokoros
+    License: Apache-2.0
+
+- kokoro-onnx (Python Kokoro runtime)
+    https://github.com/thewh1teagle/kokoro-onnx
+    License: MIT
+
+- PocketTTS.cpp (C++ Kyutai Pocket runtime; measured, not vendored here)
+    https://github.com/VolgaGerm/PocketTTS.cpp
+    License: MIT
+
+Model weights (download yourself — see scripts/download_models.sh)
+-----------------------------------------------------------------
+- Supertonic-3 weights
+    https://huggingface.co/Supertone/supertonic-3
+    License: BigScience OpenRAIL-M  (USE-BASED RESTRICTIONS — read before use).
+    NOT redistributed in this repository.
+
+- Piper voices (rhasspy/piper-voices)
+    https://huggingface.co/rhasspy/piper-voices
+    Per-voice licenses (mostly MIT / CC). Check each voice card.
+
+- Kokoro v1.0 (hexgrad/Kokoro-82M)
+    https://huggingface.co/hexgrad/Kokoro-82M
+    License: Apache-2.0
+
+- Pocket-TTS (Kyutai)
+    https://huggingface.co/kyutai/pocket-tts
+    Check model card for terms.
+
+If you redistribute any model weights, you are responsible for complying with
+that model's license. This repo distributes none of them.

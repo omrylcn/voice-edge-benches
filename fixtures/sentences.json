@@ -1,0 +1,34 @@
+{
+  "_comment": "TTS bench fixtures — same input across all 4 implementations (Piper Python/Rust, Kokoro Python/Rust)",
+  "_voices": {
+    "piper": "en_US-hfc_female-medium",
+    "kokoro": "af_heart"
+  },
+  "sentences": [
+    {
+      "id": "short",
+      "words": 6,
+      "text": "Hello, how are you today?"
+    },
+    {
+      "id": "medium",
+      "words": 22,
+      "text": "Learning a new language takes consistent practice every single day, but the results are worth every minute of effort you invest."
+    },
+    {
+      "id": "long",
+      "words": 58,
+      "text": "When you want to improve your speaking skills, the most important thing is to practice out loud, even if you feel awkward at first. Shadowing native speakers, recording yourself, and getting feedback from teachers or apps can dramatically accelerate your progress. Consistency matters more than perfection in this journey."
+    },
+    {
+      "id": "pron_tricky",
+      "words": 14,
+      "text": "The thorough physicist measured azimuth thoroughly through the synchronized chronograph apparatus."
+    },
+    {
+      "id": "numbers",
+      "words": 18,
+      "text": "In 2026, approximately 87 percent of users prefer apps that work offline without requiring internet access."
+    }
+  ]
+}

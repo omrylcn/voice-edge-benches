@@ -1,0 +1,35 @@
+{
+  "engine": "kokoro",
+  "lang": "rust",
+  "voice": "af_heart",
+  "cold_start_ms": 645.4,
+  "rss_after_load_mb": 169.3,
+  "rss_load_delta_mb": 157.0,
+  "rss_final_mb": 217.6,
+  "sentences": [
+    {
+      "id": "short",
+      "words": 6,
+      "audio_duration_s": 2.1,
+      "sample_rate": 24000,
+      "p50_ms": 1482.4,
+      "p95_ms": 1482.4,
+      "mean_ms": 1479.5,
+      "rtf": 0.7045,
+      "wav_bytes": 100844,
+      "runs": 2
+    },
+    {
+      "id": "long",
+      "words": 58,
+      "audio_duration_s": 19.55,
+      "sample_rate": 24000,
+      "p50_ms": 16732.1,
+      "p95_ms": 16732.1,
+      "mean_ms": 16729.4,
+      "rtf": 0.8557,
+      "wav_bytes": 938444,
+      "runs": 2
+    }
+  ]
+}

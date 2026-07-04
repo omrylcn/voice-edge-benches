@@ -1,0 +1,41 @@
+{
+  "_comment": "Multi-language fixtures — adds Turkish set for Supertonic (Kokoro/Piper-EN cannot handle TR). Mirrors English fixture word counts.",
+  "sentences": [
+    {
+      "id": "en_short",
+      "lang": "en",
+      "words": 6,
+      "text": "Hello, how are you today?"
+    },
+    {
+      "id": "en_medium",
+      "lang": "en",
+      "words": 22,
+      "text": "Learning a new language takes consistent practice every single day, but the results are worth every minute of effort you invest."
+    },
+    {
+      "id": "en_long",
+      "lang": "en",
+      "words": 58,
+      "text": "When you want to improve your speaking skills, the most important thing is to practice out loud, even if you feel awkward at first. Shadowing native speakers, recording yourself, and getting feedback from teachers or apps can dramatically accelerate your progress. Consistency matters more than perfection in this journey."
+    },
+    {
+      "id": "tr_short",
+      "lang": "tr",
+      "words": 5,
+      "text": "Merhaba, bugün nasılsın?"
+    },
+    {
+      "id": "tr_medium",
+      "lang": "tr",
+      "words": 22,
+      "text": "Yeni bir dil öğrenmek her gün düzenli pratik yapmayı gerektirir, ancak sonuçlar harcadığınız her bir dakikalık çabaya kesinlikle değer."
+    },
+    {
+      "id": "tr_long",
+      "lang": "tr",
+      "words": 50,
+      "text": "Konuşma becerilerinizi geliştirmek istediğinizde, en önemli şey ilk başta tuhaf hissetseniz bile yüksek sesle pratik yapmaktır. Ana dili konuşanları gölgelemek, kendinizi kaydetmek ve öğretmenlerden ya da uygulamalardan geri bildirim almak ilerlemenizi belirgin biçimde hızlandırabilir."
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "engine": "supertonic",
+  "lang": "rust",
+  "voice": "F1",
+  "total_step": 8,
+  "speed": 1.05,
+  "cold_start_ms": 630.5,
+  "rss_after_load_mb": 438.7,
+  "rss_load_delta_mb": 431.1,
+  "rss_final_mb": 548.0,
+  "sentences": [
+    {
+      "id": "en_short",
+      "lang": "en",
+      "words": 6,
+      "audio_duration_s": 1.839,
+      "sample_rate": 44100,
+      "p50_ms": 394.4,
+      "p95_ms": 399.1,
+      "mean_ms": 394.1,
+      "rtf": 0.2143,
+      "wav_bytes": 162200,
+      "runs": 9
+    },
+    {
+      "id": "en_medium",
+      "lang": "en",
+      "words": 22,
+      "audio_duration_s": 8.319,
+      "sample_rate": 44100,
+      "p50_ms": 1239.6,
+      "p95_ms": 1342.3,
+      "mean_ms": 1258.0,
+      "rtf": 0.1512,
+      "wav_bytes": 733752,
+      "runs": 9
+    },
+    {
+      "id": "en_long",
+      "lang": "en",
+      "words": 58,
+      "audio_duration_s": 21.013,
+      "sample_rate": 44100,
+      "p50_ms": 3320.5,
+      "p95_ms": 3388.0,
+      "mean_ms": 3308.0,
+      "rtf": 0.1574,
+      "wav_bytes": 1853422,
+      "runs": 9
+    },
+    {
+      "id": "tr_short",
+      "lang": "tr",
+      "words": 5,
+      "audio_duration_s": 2.006,
+      "sample_rate": 44100,
+      "p50_ms": 418.1,
+      "p95_ms": 452.3,
+      "mean_ms": 422.9,
+      "rtf": 0.2108,
+      "wav_bytes": 177010,
+      "runs": 9
+    },
+    {
+      "id": "tr_medium",
+      "lang": "tr",
+      "words": 22,
+      "audio_duration_s": 9.393,
+      "sample_rate": 44100,
+      "p50_ms": 1509.6,
+      "p95_ms": 1767.1,
+      "mean_ms": 1577.4,
+      "rtf": 0.1679,
+      "wav_bytes": 828470,
+      "runs": 9
+    },
+    {
+      "id": "tr_long",
+      "lang": "tr",
+      "words": 50,
+      "audio_duration_s": 20.872,
+      "sample_rate": 44100,
+      "p50_ms": 3195.2,
+      "p95_ms": 3431.1,
+      "mean_ms": 3238.9,
+      "rtf": 0.1552,
+      "wav_bytes": 1840934,
+      "runs": 9
+    }
+  ]
+}

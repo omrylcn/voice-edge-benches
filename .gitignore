@@ -1,0 +1,25 @@
+# Model weights — NEVER commit (large + license-restricted).
+# Fetch with scripts/download_models.sh into ./models/
+models/
+*.onnx
+*.onnx.json
+voices-v1.0.bin
+
+# Rust build artifacts
+target/
+**/target/
+
+# Python envs / caches
+.venv/
+__pycache__/
+*.pyc
+
+# Benchmark WAV outputs are regenerated; keep only committed samples in results/
+# (large per-run wavs under results/*/ that aren't the curated short/long samples)
+results/**/medium.wav
+results/**/numbers.wav
+results/**/pron_tricky.wav
+
+# OS junk
+.DS_Store
+results/**/*medium.wav
