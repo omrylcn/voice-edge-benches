@@ -86,6 +86,12 @@ fn main() -> Result<()> {
     let models_dir = std::env::var("TTS_MODELS_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| repo_root.join("models"));
+    // Default to 120-char chunks (engine ships 300): same integrator pattern
+    // as piper's sentence mode — earlier first audio for a modest total cost.
+    // SUPERTONIC_MAX_LEN=300 restores the out-of-box behavior.
+    if std::env::var("SUPERTONIC_MAX_LEN").is_err() {
+        std::env::set_var("SUPERTONIC_MAX_LEN", "120");
+    }
     let total_step: usize = std::env::var("SUPERTONIC_STEP")
         .ok()
         .and_then(|v| v.parse().ok())
